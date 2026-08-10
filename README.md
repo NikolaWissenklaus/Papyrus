@@ -7,6 +7,7 @@ contrato de coleta para o time de engenharia.
 
 <img width="1024" height="559" alt="image" src="https://github.com/user-attachments/assets/b36510bd-326b-4f93-8413-f450dc301165" />
 
+(Imagem gerada por I.A para representar o projeto)
 
 ---
 
