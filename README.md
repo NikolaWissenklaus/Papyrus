@@ -427,3 +427,9 @@ sem internet, o fallback é Helvetica/Arial e nada quebra.
   card, normalização snake_case, injeção automática do módulo Ecommerce, geração do snippet
   `dataLayer`, painel de validação, conectores, copiar/colar, undo, bloqueio de conflito entre
   grupos, modais empilhados (exportador + seletor de pastas) e download do PNG.
+
+---
+
+<img width="1901" height="942" alt="image" src="https://github.com/user-attachments/assets/0110f0cf-acde-4f89-bfde-efb4113aec6d" />
+
+---
