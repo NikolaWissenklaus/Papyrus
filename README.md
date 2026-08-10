@@ -251,7 +251,7 @@ ferramenta leve e offline. Para ativar:
    navegador. Depois de salva, aparece a etiqueta “credencial salva ✓”, com opção de remover.
 3. Clique em **Testar conexão**, o teste valida a lib, a credencial e o acesso ao bucket.
 
-A service account precisa do papel **Storage Object Creator** (ou superior) no bucket.
+A service account precisa do papel **Storage Object Creator** (ou superior) e **Storage Bucket** Viewer no bucket.
 Também dá para configurar por variáveis de ambiente, que têm prioridade sobre a aba
 (os campos aparecem travados com a etiqueta `env`):
 
