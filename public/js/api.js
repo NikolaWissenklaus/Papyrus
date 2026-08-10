@@ -65,7 +65,7 @@ export const api = {
   exportGcs: (body) => request('/api/export/gcs', { method: 'POST', body }),
   getGcsSettings: () => request('/api/settings/gcs'),
   saveGcsSettings: (body) => request('/api/settings/gcs', { method: 'PUT', body }),
-  testGcs: () => request('/api/settings/gcs/test', { method: 'POST' }),
+  testGcs: (body = {}) => request('/api/settings/gcs/test', { method: 'POST', body }),
 
   /* --------------------------------------------------------- Importar -- */
   importInline: (files, destination) => request('/api/import/inline', { method: 'POST', body: { files, destination } }),

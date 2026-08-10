@@ -220,6 +220,10 @@ function gcsCard(gcs) {
           : ''}
         <span id="gcs-test-result" class="field__hint"></span>
       </div>
+      <p class="field__hint" style="margin:8px 0 0">
+        "Testar conexão" valida os valores que estão nesta tela. Para que a exportação
+        passe a usá-los, clique em <strong>Salvar configuração</strong>.
+      </p>
     </div>`;
 }
 
@@ -253,7 +257,15 @@ function bindGcsCard(body, gcs) {
   body.querySelector('#gcs-test').onclick = async () => {
     testResult.textContent = 'Testando…';
     try {
-      const result = await api.testGcs();
+      // Testa o que está na tela, não só o que já foi salvo — assim dá para
+      // validar bucket e credencial antes de gravar a configuração.
+      const keyJson = value('#gcs-keyjson');
+      const result = await api.testGcs({
+        bucket: value('#gcs-bucket'),
+        prefix: value('#gcs-prefix'),
+        projectId: value('#gcs-project'),
+        ...(keyJson ? { keyJson } : {}),
+      });
       testResult.innerHTML = `<span style="color:var(--ok)">✓ Conectado ao bucket <code>${esc(result.bucket)}</code>.</span>`;
       toast.ok('Conexão com o GCS funcionando.');
     } catch (err) {

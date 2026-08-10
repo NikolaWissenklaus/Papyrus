@@ -262,10 +262,15 @@ router.put('/settings/gcs', async (req, res, next) => {
   }
 });
 
-/** POST /api/settings/gcs/test — valida lib + credencial + acesso ao bucket. */
-router.post('/settings/gcs/test', async (_req, res, next) => {
+/**
+ * POST /api/settings/gcs/test  { bucket?, prefix?, projectId?, keyJson? }
+ * Valida lib + credencial + acesso ao bucket. O corpo é opcional: quando vem
+ * preenchido, testa os valores que estão na tela (permite testar sem salvar);
+ * quando vem vazio, testa a configuração já persistida.
+ */
+router.post('/settings/gcs/test', async (req, res, next) => {
   try {
-    res.json(await testGcs());
+    res.json(await testGcs(req.body || {}));
   } catch (err) {
     next(err);
   }

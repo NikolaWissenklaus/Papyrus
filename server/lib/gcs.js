@@ -112,11 +112,59 @@ export async function saveGcsConfig({ bucket, prefix, projectId, keyJson, remove
 /**
  * Testa a conexão de ponta a ponta: lib instalada, credencial válida e
  * bucket acessível. Lança com mensagem legível em qualquer falha.
+ *
+ * Aceita os valores que estão na tela (`draft`) para permitir testar ANTES de
+ * salvar — é o que a aba Configurações envia. O que não vier no draft cai no
+ * que já está salvo/no env.
+ *
+ * @param {{bucket?:string, prefix?:string, projectId?:string, keyJson?:string}} [draft]
  */
-export async function testGcs() {
-  const config = await getGcsConfig();
+export async function testGcs(draft = {}) {
+  const saved = await getGcsConfig();
+  const config = {
+    bucket: String(draft.bucket || '').trim() || saved.bucket,
+    prefix: (draft.prefix != null ? String(draft.prefix) : saved.prefix).trim(),
+    projectId: String(draft.projectId || '').trim() || saved.projectId,
+    keyFilename: saved.keyFilename,
+  };
+
+  // Env sempre vence: se o valor está fixado por variável de ambiente, o campo
+  // aparece desabilitado na UI e o draft não pode sobrescrevê-lo.
+  if (process.env.GCS_BUCKET) config.bucket = saved.bucket;
+  if (process.env.GCS_PROJECT_ID) config.projectId = saved.projectId;
+
   if (!config.bucket) {
     const err = new Error('Informe o nome do bucket antes de testar.');
+    err.status = 400;
+    throw err;
+  }
+
+  // Credencial colada e ainda não salva: usa direto, sem gravar em disco.
+  let credentials = null;
+  if (draft.keyJson && String(draft.keyJson).trim() && !process.env.GCS_KEYFILE) {
+    let parsed;
+    try {
+      parsed = JSON.parse(draft.keyJson);
+    } catch {
+      const err = new Error('O conteúdo colado não é um JSON válido.');
+      err.status = 400;
+      throw err;
+    }
+    if (!parsed.client_email || !parsed.private_key) {
+      const err = new Error(
+        'O JSON não parece uma service account (faltam client_email/private_key).',
+      );
+      err.status = 400;
+      throw err;
+    }
+    credentials = parsed;
+    if (!config.projectId && parsed.project_id) config.projectId = parsed.project_id;
+  }
+
+  if (!credentials && !config.keyFilename && !process.env.GOOGLE_APPLICATION_CREDENTIALS) {
+    const err = new Error(
+      'Nenhuma credencial disponível: cole o JSON da service account no campo acima antes de testar.',
+    );
     err.status = 400;
     throw err;
   }
@@ -131,7 +179,7 @@ export async function testGcs() {
   }
 
   const storage = new Storage({
-    ...(config.keyFilename ? { keyFilename: config.keyFilename } : {}),
+    ...(credentials ? { credentials } : config.keyFilename ? { keyFilename: config.keyFilename } : {}),
     ...(config.projectId ? { projectId: config.projectId } : {}),
   });
 
