@@ -1,0 +1,144 @@
+/* ==========================================================================
+   tokens.css — Design System do Papyrus
+   --------------------------------------------------------------------------
+   Linguagem visual do Material Design do Google: paleta oficial (Google Blue
+   #1A73E8, Red #EA4335, Yellow #FBBC04, Green #34A853), cinzas neutros,
+   superfícies claras, elevação sutil e formas arredondadas.
+
+   Cores de tipo de evento: codificação funcional de dado (View / Interaction /
+   Ecommerce / Automatic) — não são decoração, por isso seguem o padrão
+   semântico Azul / Verde / Amarelo / Vermelho.
+   ========================================================================== */
+
+:root {
+  /* --- Paleta Google ------------------------------------------------------ */
+  --google-blue: #1a73e8;
+  --google-red: #ea4335;
+  --google-yellow: #fbbc04;
+  --google-green: #34a853;
+
+  /* Aliases legados (componentes antigos referenciam estes nomes) */
+  --azul: var(--google-blue);
+  --azul-600: #1765cc;
+  --azul-100: #e8f0fe;
+  --vermelho: #d93025;
+  --vermelho-100: #fce8e6;
+  --preto: #202124;
+  --branco: #ffffff;
+  --cinza: #5f6368;
+
+  /* --- Primária (ações, seleção, foco) ------------------------------------ */
+  --primary: var(--google-blue);
+  --primary-hover: #1765cc;
+  --primary-soft: #e8f0fe;
+  --focus-ring: rgba(26, 115, 232, 0.18);
+
+  /* --- Superfícies e traços (neutros estilo Google) ------------------------ */
+  --off-white: #f8f9fa;
+  --surface: #ffffff;
+  --surface-alt: #f1f3f4;
+  --surface-hover: #f1f3f4;
+  --canvas-bg: #f8f9fa;
+  --border: #e8eaed;
+  --border-strong: #dadce0;
+  --text: #202124;
+  --text-muted: #5f6368;
+  --text-faint: #9aa0a6;
+
+  /* --- Tipos de evento (codificação funcional) --------------------------- */
+  --evt-view: #1a73e8;        /* View        — azul    */
+  --evt-interaction: #188038; /* Interaction — verde   */
+  --evt-ecommerce: #f9ab00;   /* Ecommerce   — amarelo */
+  --evt-automatic: #a142f4;   /* Automatic   — lilás   */
+
+  /* --- Semânticas -------------------------------------------------------- */
+  --ok: #188038;
+  --warn: #b06000;
+  --danger: #d93025;
+  --ok-bg: #e6f4ea;
+  --warn-bg: #fef7e0;
+  --danger-bg: #fce8e6;
+
+  /* --- Tipografia (Google Sans quando instalada; Roboto cobre o resto) ---- */
+  --font-display: 'Google Sans', 'Product Sans', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+  --font-body: 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'Roboto Mono', 'Consolas', 'SF Mono', monospace;
+
+  /* --- Forma ------------------------------------------------------------- */
+  --radius-card: 16px;
+  --radius-sm: 10px;
+  --radius-button: 999px;
+
+  /* --- Elevação (Material: sutil, difusa, nunca pesada) ------------------- */
+  --shadow-1: 0 1px 2px rgba(60, 64, 67, 0.1);
+  --shadow-2: 0 1px 3px rgba(60, 64, 67, 0.12), 0 4px 10px 2px rgba(60, 64, 67, 0.06);
+  --shadow-3: 0 4px 12px rgba(60, 64, 67, 0.12), 0 10px 28px 4px rgba(60, 64, 67, 0.08);
+
+  /* --- Layout ------------------------------------------------------------ */
+  --topbar-h: 56px;
+  --sidebar-w: 288px;
+  --inspector-w: 380px;
+
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--font-body);
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text);
+  background: var(--off-white);
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+/* Títulos no estilo Google: peso médio (500), sem condensação. */
+h1,
+h2,
+h3,
+h4,
+.brand-name {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: 0;
+  margin: 0;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: 12px;
+}
+.muted {
+  color: var(--text-muted);
+}
+.faint {
+  color: var(--text-faint);
+}
+
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #dadce0;
+  border-radius: 999px;
+  border: 3px solid transparent;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #bdc1c6;
+  background-clip: content-box;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}

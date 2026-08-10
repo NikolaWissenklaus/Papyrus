@@ -1,0 +1,204 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Papyrus — Mapa de Coletas GA4</title>
+
+    <link
+      rel="icon"
+      type="image/svg+xml"
+      href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath d='M5.5 3.5A1.5 1.5 0 017 2h7.5L19.5 7v14a1.5 1.5 0 01-1.5 1.5H7A1.5 1.5 0 015.5 21z' fill='%231a73e8'/%3E%3Cpath d='M14.5 2l5 5h-4a1 1 0 01-1-1z' fill='%23a8c7fa'/%3E%3Cpath d='M8.5 12h7M8.5 15h7M8.5 18h4.5' stroke='%23fff' stroke-width='1.5' stroke-linecap='round'/%3E%3C/svg%3E"
+    />
+
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&family=Roboto+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+
+    <link rel="stylesheet" href="/css/tokens.css" />
+    <link rel="stylesheet" href="/css/app.css" />
+    <link rel="stylesheet" href="/css/forms.css" />
+  </head>
+
+  <body>
+    <!-- ===================== BARRA SUPERIOR ===================== -->
+    <header class="topbar">
+      <button class="icon-btn" id="btn-toggle-sidebar" title="Mostrar/ocultar barra lateral ( [ )">
+        <svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5" /><path d="M9.5 4.5v15" /></svg>
+      </button>
+
+      <div class="topbar__brand">
+        <svg class="brand-mark" viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M5.5 3.5A1.5 1.5 0 017 2h7.5L19.5 7v14a1.5 1.5 0 01-1.5 1.5H7A1.5 1.5 0 015.5 21z" fill="#1a73e8" />
+          <path d="M14.5 2l5 5h-4a1 1 0 01-1-1z" fill="#a8c7fa" />
+          <path d="M8.5 12h7M8.5 15h7M8.5 18h4.5" stroke="#fff" stroke-width="1.5" stroke-linecap="round" />
+        </svg>
+        <span class="brand-name">Papyrus</span>
+        <span class="brand-sub">mapa de coletas GA4</span>
+      </div>
+
+      <nav class="tabs" role="tablist">
+        <button class="tab is-active" data-view="canvas" role="tab">Canvas</button>
+        <button class="tab" data-view="templates" role="tab">Grupos de Parâmetros</button>
+        <button class="tab" data-view="dictionary" role="tab">Dicionário Global</button>
+        <button class="tab" data-view="settings" role="tab">Configurações</button>
+      </nav>
+
+      <div class="topbar__actions">
+        <button class="icon-btn" id="btn-undo" title="Desfazer (Ctrl+Z)" disabled>
+          <svg viewBox="0 0 24 24"><path d="M8.5 6.5L4.5 10.5l4 4" /><path d="M4.5 10.5h9a5 5 0 015 5v1" /></svg>
+        </button>
+        <button class="icon-btn" id="btn-redo" title="Refazer (Ctrl+Shift+Z)" disabled>
+          <svg viewBox="0 0 24 24"><path d="M15.5 6.5l4 4-4 4" /><path d="M19.5 10.5h-9a5 5 0 00-5 5v1" /></svg>
+        </button>
+        <span class="topbar__sep"></span>
+        <span id="save-status" class="save-status" title="Estado do salvamento">—</span>
+        <button class="btn btn--ghost" id="btn-export-png" title="Exportar canvas em PNG/JPG (alta resolução)">
+          Imagem
+        </button>
+        <button class="btn btn--ghost" id="btn-export-trust" title="Exportar regras de negócio (Trust Factor)">
+          Trust Factor
+        </button>
+        <button class="btn btn--ghost btn--icon" id="btn-help" title="Atalhos de teclado (?)">?</button>
+        <span class="topbar__sep"></span>
+        <button class="icon-btn" id="btn-toggle-inspector" title="Mostrar/ocultar inspetor ( ] )">
+          <svg viewBox="0 0 24 24"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5" /><path d="M14.5 4.5v15" /></svg>
+        </button>
+      </div>
+    </header>
+
+    <div class="workspace" id="workspace">
+      <!-- ===================== SIDEBAR ===================== -->
+      <aside class="sidebar" id="sidebar">
+        <div class="sidebar__search">
+          <input
+            type="search"
+            id="tree-search"
+            class="input input--search"
+            placeholder="Buscar pasta ou página…"
+            autocomplete="off"
+          />
+        </div>
+
+        <div class="sidebar__toolbar">
+          <button class="btn btn--mini" id="btn-new-folder" title="Nova pasta">+ Pasta</button>
+          <button class="btn btn--mini" id="btn-new-page" title="Nova página de canvas">+ Página</button>
+          <button class="btn btn--mini" id="btn-import" title="Importar arquivo ou pasta externa">Importar</button>
+        </div>
+
+        <div class="sidebar__tree" id="tree" tabindex="0"></div>
+      </aside>
+
+      <!-- ===================== VIEW: CANVAS ===================== -->
+      <main class="view view--canvas is-active" data-view="canvas">
+        <div class="canvas-shell">
+          <!-- Ferramentas flutuantes -->
+          <div class="toolpad" id="toolpad">
+            <button class="tool is-active" data-tool="select" title="Selecionar / mover (V)">
+              <svg viewBox="0 0 24 24"><path d="M5 3l14 8-6 1.6L10.5 19z" /></svg>
+            </button>
+            <button class="tool" data-tool="hand" title="Navegar (H ou Espaço)">
+              <svg viewBox="0 0 24 24"><path d="M8 11V5.5a1.5 1.5 0 013 0V11V4.5a1.5 1.5 0 013 0V11V6.5a1.5 1.5 0 013 0V15a6 6 0 01-6 6h-1a6 6 0 01-6-6v-3a1.5 1.5 0 013 0z"/></svg>
+            </button>
+            <span class="tool-sep"></span>
+            <button class="tool" data-tool="event" title="Card de Evento (E)">
+              <svg viewBox="0 0 24 24">
+                <rect x="3.5" y="4.5" width="17" height="15" rx="2.5" class="outline" />
+                <path d="M3.5 7A2.5 2.5 0 016 4.5h12A2.5 2.5 0 0120.5 7v1.5h-17z" />
+                <path d="M6.5 12h11M6.5 15h7" class="stroke" />
+              </svg>
+            </button>
+            <button class="tool" data-tool="sticky" title="Nota adesiva (N)">
+              <svg viewBox="0 0 24 24"><path d="M4 4h16v11l-5 5H4z"/></svg>
+            </button>
+            <button class="tool" data-tool="text" title="Texto (T)">
+              <svg viewBox="0 0 24 24"><path d="M5 5h14v3h-5v11h-4V8H5z"/></svg>
+            </button>
+            <span class="tool-sep"></span>
+            <button class="tool" data-tool="rect" title="Retângulo (R)">
+              <svg viewBox="0 0 24 24"><rect x="4" y="6.5" width="16" height="11" rx="2" class="outline"/></svg>
+            </button>
+            <button class="tool" data-tool="ellipse" title="Círculo (O)">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="7.5" class="outline"/></svg>
+            </button>
+            <button class="tool" data-tool="pin" title="Pin de referência (P)">
+              <svg viewBox="0 0 24 24"><path d="M12 2a6 6 0 016 6c0 4.5-6 14-6 14S6 12.5 6 8a6 6 0 016-6z"/></svg>
+            </button>
+            <button class="tool" data-tool="connector" title="Conector magnético (C)">
+              <svg viewBox="0 0 24 24"><path d="M4 18L19 7M19 7h-5.5M19 7v5.5" class="outline" stroke-linecap="round"/></svg>
+            </button>
+            <span class="tool-sep"></span>
+            <button class="tool" data-tool="image" title="Inserir imagem (ou Ctrl+V)">
+              <svg viewBox="0 0 24 24">
+                <rect x="3.5" y="5.5" width="17" height="13" rx="2" class="outline" />
+                <circle cx="8.5" cy="10" r="1.5" />
+                <path d="M5.5 17l4-4.5 2.8 3L15.5 12l3.2 5z" />
+              </svg>
+            </button>
+          </div>
+
+          <!-- Palco Konva -->
+          <div id="stage-host" class="stage-host"></div>
+
+          <!-- Estado vazio -->
+          <div class="empty-state" id="canvas-empty">
+            <h2>Nenhuma página aberta</h2>
+            <p>Crie ou selecione uma página na barra lateral para começar a mapear os eventos.</p>
+            <button class="btn btn--primary" id="btn-empty-new-page">Criar primeira página</button>
+          </div>
+
+          <!-- Controles de zoom -->
+          <div class="zoombar">
+            <button class="btn btn--mini" id="zoom-out" title="Zoom out (Ctrl -)">−</button>
+            <button class="btn btn--mini" id="zoom-level" title="Resetar para 100%">100%</button>
+            <button class="btn btn--mini" id="zoom-in" title="Zoom in (Ctrl +)">+</button>
+            <button class="btn btn--mini" id="zoom-fit" title="Enquadrar conteúdo (Shift+1)">Fit</button>
+          </div>
+
+          <!-- Painel de validação (Quality of Life) -->
+          <div class="validation" id="validation">
+            <button class="validation__toggle" id="validation-toggle">
+              <span class="dot" id="validation-dot"></span>
+              <span id="validation-label">Validação</span>
+            </button>
+            <div class="validation__body" id="validation-body" hidden></div>
+          </div>
+        </div>
+
+        <!-- Inspetor -->
+        <aside class="inspector" id="inspector">
+          <div class="inspector__empty">
+            <p>Selecione um elemento no canvas para editar suas propriedades.</p>
+          </div>
+        </aside>
+      </main>
+
+      <!-- ===================== VIEW: GRUPOS DE PARÂMETROS ===================== -->
+      <main class="view view--page" data-view="templates">
+        <div class="page-wrap" id="templates-root"></div>
+      </main>
+
+      <!-- ===================== VIEW: DICIONÁRIO GLOBAL ===================== -->
+      <main class="view view--page" data-view="dictionary">
+        <div class="page-wrap" id="dictionary-root"></div>
+      </main>
+
+      <!-- ===================== VIEW: CONFIGURAÇÕES ===================== -->
+      <main class="view view--page" data-view="settings">
+        <div class="page-wrap" id="settings-root"></div>
+      </main>
+    </div>
+
+    <!-- Infra de UI -->
+    <div class="toasts" id="toasts"></div>
+    <div class="modal-layer" id="modal-layer" hidden></div>
+    <input type="file" id="file-image" accept="image/*" hidden multiple />
+    <input type="file" id="file-json" accept="application/json,.json" hidden multiple />
+
+    <script src="/vendor/konva.min.js"></script>
+    <script type="module" src="/js/main.js"></script>
+  </body>
+</html>
