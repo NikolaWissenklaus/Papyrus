@@ -1,8 +1,8 @@
 # Papyrus
 
 Ferramenta visual de **planejamento de mensuração e mapas de coleta para o GA4**.
-Canvas infinito para desenhar a arquitetura de dados de uma tela — prints de referência,
-pins, conectores e cards de evento com parâmetros tipados — e exportar isso como
+Canvas infinito para desenhar a arquitetura de dados de uma tela, prints de referência,
+pins, conectores e cards de evento com parâmetros tipados, e exportar isso como
 contrato de coleta para o time de engenharia.
 
 ---
@@ -12,7 +12,6 @@ contrato de coleta para o time de engenharia.
 Pré-requisito: **Node.js 18 ou superior** (testado no Node 24).
 
 ```bash
-cd herculano   # pasta do projeto no disco (nome histórico)
 npm install
 npm start
 ```
@@ -33,10 +32,10 @@ No PowerShell, variáveis de ambiente vão assim: `$env:PORT=3000; npm start`.
 ### Por que Express e não Electron
 
 A ferramenta precisa de acesso real ao sistema de arquivos (criar pastas, ler e gravar JSON,
-escolher onde salvar o export) — algo impossível num front-end puro no navegador.
+escolher onde salvar o export), algo impossível num front-end puro no navegador.
 Entre Electron e um servidor Node local, o servidor venceu por três motivos: sobe em ~1s sem
 build step, roda em qualquer máquina que tenha Node, e permite abrir o mapa em várias abas ou
-até compartilhar na rede interna do time. Nada impede empacotar como Electron depois — o
+até compartilhar na rede interna do time. Nada impede empacotar como Electron depois, o
 front-end e a API já estão desacoplados.
 
 ---
@@ -87,7 +86,7 @@ herculano/                      # raiz do projeto no disco (o app: Papyrus)
 │           ├── modal.js        # Diálogos empilháveis e menu de contexto
 │           └── toast.js
 │
-└── papyrus/                    # Criada na primeira execução — seus arquivos
+└── papyrus/                    # Criada na primeira execução, seus arquivos
     ├── _assets/                # Imagens coladas no canvas
     └── _system/                # Grupos de parâmetros salvos
 ```
@@ -141,7 +140,7 @@ e não abrem. Na importação, eles são recusados e listados com o motivo.
 ```
 
 Imagens **não** são embutidas em base64. Elas vão para `papyrus/_assets/<data>/<uuid>.png`
-e o documento guarda só a URL — os JSONs continuam leves e versionáveis no Git.
+e o documento guarda só a URL, os JSONs continuam leves e versionáveis no Git.
 
 ---
 
@@ -149,12 +148,12 @@ e o documento guarda só a URL — os JSONs continuam leves e versionáveis no G
 
 ### Fluxo recomendado
 
-1. **Crie uma página** (`+ Página` na barra lateral) — uma por tela/jornada.
+1. **Crie uma página** (`+ Página` na barra lateral), uma por tela/jornada.
 2. **Cole o print** da tela com `Ctrl + V`.
 3. **Marque os pontos de interação** com pins (`P`).
 4. **Crie os cards de evento** (`E`) e preencha no inspetor à direita.
 5. **Ligue pin ↔ card** com o conector magnético (`C`): clique na origem, depois no destino.
-6. **Confira a validação** no rodapé — clique num problema para o canvas voar até o card.
+6. **Confira a validação** no rodapé, clique num problema para o canvas voar até o card.
 7. **Exporte o Trust Factor** para entregar ao time de engenharia.
 
 ### O Card de Evento
@@ -169,7 +168,7 @@ e o documento guarda só a URL — os JSONs continuam leves e versionáveis no G
 | Propriedades de usuário | Idem |
 | Módulo Ecommerce | Aparece sozinho ao escolher o tipo **Ecommerce** |
 
-A cor da tarja do card codifica o tipo — é dado, não decoração:
+A cor da tarja do card codifica o tipo, é dado, não decoração:
 
 | Tipo | Cor |
 |---|---|
@@ -184,31 +183,31 @@ editados ou complementados com parâmetros customizados.
 
 ### Grupos de Parâmetros
 
-Aba própria. Um grupo é um conjunto nomeado de parâmetros recorrentes — “Contexto de Página”,
+Aba própria. Um grupo é um conjunto nomeado de parâmetros recorrentes, “Contexto de Página”,
 “Identificação do Usuário”. No card de evento, **Importar grupo** traz o bloco inteiro.
 
 O importador calcula conflitos em tempo real: se dois grupos selecionados declararem o mesmo
 nome de parâmetro, ou se o nome já existir no card, a importação é **bloqueada** e os conflitos
-são listados. Existe também um caminho de escape — *“Importar apenas os sem conflito”*.
+são listados. Existe também um caminho de escape, *“Importar apenas os sem conflito”*.
 
 ### Dicionário Global
 
 Catálogo consolidado de todo o workspace:
 
-- **Eventos** — todos os eventos, em que página vivem, squad, quantidade de parâmetros, link do card
-- **Parâmetros** — parâmetros únicos, tipos declarados, número de usos, em quantos eventos é obrigatório
-- **De-para** — matriz parâmetro × evento
-- **Conflito de tipo** — o mesmo nome declarado como tipos diferentes em eventos distintos.
+- **Eventos**, todos os eventos, em que página vivem, squad, quantidade de parâmetros, link do card
+- **Parâmetros**, parâmetros únicos, tipos declarados, número de usos, em quantos eventos é obrigatório
+- **De-para**, matriz parâmetro × evento
+- **Conflito de tipo**, o mesmo nome declarado como tipos diferentes em eventos distintos.
   É o erro que mais custa caro quando já chegou no BigQuery, então ele aparece em destaque no topo.
-- **Exportar CSV** — o de-para completo, com BOM para o Excel abrir com acentuação correta
+- **Exportar CSV**, o de-para completo, com BOM para o Excel abrir com acentuação correta
 
 ### Exportação
 
-**Imagem (PNG/JPG)** — recorta o conteúdo (sem áreas vazias), 2× a 4×, fundo
+**Imagem (PNG/JPG)**, recorta o conteúdo (sem áreas vazias), 2× a 4×, fundo
 branco/cinza/transparente, com opção de exportar apenas a seleção atual. A escala é
 ajustada automaticamente se o mapa for grande demais para o limite de canvas do navegador.
 
-**Trust Factor** — JSON só com regra de negócio. Nenhuma coordenada, cor ou elemento visual.
+**Trust Factor**, JSON só com regra de negócio. Nenhuma coordenada, cor ou elemento visual.
 A chave raiz é o nome da página; o valor é o array de eventos:
 
 ```json
@@ -233,7 +232,7 @@ A chave raiz é o nome da página; o valor é o array de eventos:
 
 Você escolhe o escopo (página aberta ou workspace inteiro) e o destino: download pelo
 navegador ou um bucket do Google Cloud Storage. Por segurança, a interface **não expõe
-nem grava em pastas da máquina do servidor** — não há caminhos de disco em lugar nenhum
+nem grava em pastas da máquina do servidor**, não há caminhos de disco em lugar nenhum
 da UI ou da API.
 
 ### Google Cloud Storage (opcional)
@@ -242,12 +241,12 @@ A estrutura de publicação em GCS já vem pronta, mas desativada por padrão pa
 ferramenta leve e offline. Para ativar:
 
 1. Instale a lib oficial: `npm install @google-cloud/storage` (e reinicie o servidor)
-2. Abra a aba **Configurações → Exportação — Google Cloud Storage** e informe o bucket,
+2. Abra a aba **Configurações → Exportação, Google Cloud Storage** e informe o bucket,
    o prefixo (pasta dentro do bucket) e a credencial: **cole o conteúdo do JSON da service
    account** no campo mascarado (estilo senha). O conteúdo é validado e gravado pelo servidor
-   em `papyrus/_system/gcs-service-account.json` — nunca é exibido de volta nem fica no
+   em `papyrus/_system/gcs-service-account.json`, nunca é exibido de volta nem fica no
    navegador. Depois de salva, aparece a etiqueta “credencial salva ✓”, com opção de remover.
-3. Clique em **Testar conexão** — o teste valida a lib, a credencial e o acesso ao bucket.
+3. Clique em **Testar conexão**, o teste valida a lib, a credencial e o acesso ao bucket.
 
 A service account precisa do papel **Storage Object Creator** (ou superior) no bucket.
 Também dá para configurar por variáveis de ambiente, que têm prioridade sobre a aba
@@ -263,9 +262,9 @@ exportação (Trust Factor e imagem). O status pode ser consultado em `GET /api/
 
 ### Aba Configurações
 
-- **Exportação de imagem** — padrões de resolução, formato, fundo e margem que
+- **Exportação de imagem**, padrões de resolução, formato, fundo e margem que
   pré-preenchem o exportador (salvos no navegador).
-- **Google Cloud Storage** — bucket, prefixo, project id, service account e teste de conexão.
+- **Google Cloud Storage**, bucket, prefixo, project id, service account e teste de conexão.
 
 A aba não exibe nenhuma informação do servidor (caminhos, sistema operacional, runtime).
 
@@ -286,13 +285,13 @@ Clicar em um problema centraliza o canvas no card responsável.
 
 **2. Geradores de código no card.**
 Três botões que fecham o ciclo “planejei → implemento” sem redigitação:
-- `dataLayer.push` — com o `push({ ecommerce: null })` recomendado pelo Google e a estrutura
+- `dataLayer.push`, com o `push({ ecommerce: null })` recomendado pelo Google e a estrutura
   `ecommerce.items[]` montada, comentários de obrigatoriedade e cabeçalho com squad/gatilho/card
-- `gtag()` — equivalente na API gtag.js
-- **JSON Schema** — contrato de coleta para validar payloads em testes automatizados
+- `gtag()`, equivalente na API gtag.js
+- **JSON Schema**, contrato de coleta para validar payloads em testes automatizados
 
 **3. Normalização automática para snake_case.** Ao sair do campo de nome (evento ou parâmetro),
-o texto é convertido — acentos incluídos. Há também um botão `snake_case` que normaliza a
+o texto é convertido, acentos incluídos. Há também um botão `snake_case` que normaliza a
 tabela inteira de uma vez.
 
 **4. Detecção de conflito de tipo entre páginas** no Dicionário Global.
@@ -303,7 +302,7 @@ Digitar um nome inteiro consome **um** passo de undo, não trinta.
 **6. Alinhar e distribuir** em seleção múltipla (6 alinhamentos + 2 distribuições).
 
 **7. Colar texto vira nota adesiva.** Ctrl+V com texto na área de transferência cria um sticky
-já preenchido — útil ao trazer requisitos de fora.
+já preenchido, útil ao trazer requisitos de fora.
 
 **8. Copiar/colar entre páginas e abas.** O clipboard grava JSON assinado no sistema, então dá
 para copiar cards de uma página e colar em outra, inclusive em outra aba do navegador.
@@ -316,7 +315,7 @@ Conectores internos à seleção são religados às cópias.
 **11. Ctrl+clique no card do Jira/Trello** abre o ticket direto do canvas.
 
 **12. Painéis recolhíveis.** A barra lateral e o inspetor abrem/fecham pelos botões da
-barra superior ou pelos atalhos `[` e `]` — o estado fica salvo entre sessões. Dar duplo
+barra superior ou pelos atalhos `[` e `]`, o estado fica salvo entre sessões. Dar duplo
 clique em um card de evento reabre o inspetor automaticamente.
 
 **13. Undo/redo na barra superior** com estado habilitado/desabilitado em tempo real.
@@ -375,7 +374,7 @@ Duplo clique em nota adesiva ou texto edita direto no canvas.
 | `POST` | `/api/import/inline` | Importa arquivos enviados pelo navegador |
 
 Todo caminho recebido é resolvido contra a raiz do papyrus e rejeitado se escapar dela.
-A API não expõe caminhos absolutos nem a estrutura de pastas do host — o navegador de
+A API não expõe caminhos absolutos nem a estrutura de pastas do host, o navegador de
 diretórios do SO e a importação/gravação por caminho de disco foram removidos de propósito
 para permitir rodar a ferramenta em um servidor compartilhado.
 
@@ -384,7 +383,7 @@ para permitir rodar a ferramenta em um servidor compartilhado.
 ## 8. Notas de implementação
 
 **Renderização do canvas.** Render incremental com diff por fingerprint: a cada alteração,
-cada elemento é comparado (JSON) com a versão que gerou seu nó Konva — só o que mudou é
+cada elemento é comparado (JSON) com a versão que gerou seu nó Konva, só o que mudou é
 reconstruído; o restante é reaproveitado e reordenado para manter o Z correto. Conectores
 são sempre recalculados (dependem da posição/altura dos elementos ancorados), mas são
 baratos. Vários commits no mesmo frame são agrupados em um único render
@@ -392,19 +391,19 @@ baratos. Vários commits no mesmo frame são agrupados em um único render
 só os conectores são recalculados em tempo real.
 
 **Custo de pintura.** Todo conteúdo interno dos cards (textos, divisores, marcadores) tem
-`listening: false` — o Konva deixa de desenhar o hit-canvas desses shapes, que era o item
+`listening: false`, o Konva deixa de desenhar o hit-canvas desses shapes, que era o item
 mais caro do frame. Formas com sombra usam `perfectDrawEnabled: false` e
 `shadowForStrokeEnabled: false`, e o `pixelRatio` é limitado a 2 em monitores com escala
 alta do Windows. A validação de governança roda com debounce de 250ms em vez de a cada tecla.
 
 **Conectores magnéticos.** `from`/`to` guardam apenas `{ id, anchor }`. A posição real é
-recalculada no render escolhendo o par de âncoras mais curto entre os dois elementos — por isso
+recalculada no render escolhendo o par de âncoras mais curto entre os dois elementos, por isso
 a seta sempre sai e chega pelo lado natural, mesmo depois de mover ou redimensionar os cards.
 
 **Por que o card é editado no painel e não dentro do canvas.** São cerca de 20 campos e duas
 tabelas de parâmetros; espremer isso dentro de um retângulo desenhado seria hostil. O card no
 canvas funciona como resumo executivo, o inspetor é a ficha completa. O painel não se
-re-renderiza quando a alteração vem dele mesmo — senão o input perderia o foco a cada tecla.
+re-renderiza quando a alteração vem dele mesmo, senão o input perderia o foco a cada tecla.
 
 **Undo/redo por snapshot.** Mais confiável que comandos invertidos e irrelevante em custo nesta
 escala. Limite de 80 passos.
