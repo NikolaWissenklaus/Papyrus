@@ -141,3 +141,17 @@ export function loadImage(src) {
     img.src = src;
   });
 }
+
+/**
+ * Forma de comparacao de um nome de pasta ou pagina.
+ *
+ * Precisa casar com `normalizeName` de server/lib/names.js: as duas pontas
+ * decidem a mesma colisao, e divergir faria a UI liberar um nome que o servidor
+ * recusa em seguida.
+ */
+export function normalizeName(name) {
+  return String(name || '')
+    .trim()
+    .normalize('NFC')
+    .toLowerCase();
+}

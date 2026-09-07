@@ -95,20 +95,11 @@ export async function exists(absolutePath) {
   }
 }
 
-/**
- * Gera um nome unico caso ja exista algo com o mesmo nome no diretorio.
- * "home.json" -> "home (2).json"
+/*
+ * Nao existe mais um `uniquePath` aqui.
+ *
+ * Ele resolvia colisao acrescentando "(2)" ao nome, e era exatamente o
+ * comportamento que a regra de nome unico proibe: a copia nascia parecida com a
+ * original, sem ninguem perceber. Colisao de nome agora vira erro, em
+ * lib/names.js.
  */
-export async function uniquePath(absolutePath) {
-  if (!(await exists(absolutePath))) return absolutePath;
-
-  const dir = path.dirname(absolutePath);
-  const ext = path.extname(absolutePath);
-  const base = path.basename(absolutePath, ext);
-
-  for (let i = 2; i < 500; i += 1) {
-    const candidate = path.join(dir, `${base} (${i})${ext}`);
-    if (!(await exists(candidate))) return candidate;
-  }
-  throw new Error('Nao foi possivel gerar um nome unico.');
-}

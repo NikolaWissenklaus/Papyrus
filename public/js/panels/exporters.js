@@ -3,7 +3,8 @@
  *
  * "Exportar" gera um JSON so com regra de negocio: o nome da pagina como chave
  * raiz e um array de eventos tipados como valor. Coordenada, cor e elemento
- * visual ficam de fora. O escopo e sempre o workspace inteiro, nunca uma pagina
+ * visual ficam de fora. O nome basta como chave porque o workspace recusa nome
+ * repetido, entao duas paginas nunca disputam a mesma chave. O escopo e sempre o workspace inteiro, nunca uma pagina
  * isolada, porque o arquivo precisa valer como retrato completo da coleta. Ele
  * vai direto para o bucket do Google Cloud Storage, ja que o contrato de coleta
  * precisa de um endereco unico. Download solto na maquina de quem exportou vira

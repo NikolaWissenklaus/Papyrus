@@ -1,0 +1,1922 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="description" content="Documentacao completa do Papyrus: instalacao, uso, arquitetura, mapa do codigo, API e decisoes tecnicas.">
+<style>
+  :root { color-scheme: light dark; }
+  body { margin: 0; }
+  img { max-width: 100%; }
+  [hidden] { display: none !important; }
+</style>
+</head>
+<body>
+<title>Papyrus Handbook</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Roboto:ital,wght@0,300;0,400;0,500;0,700;1,400&family=Roboto+Mono:wght@400;500&display=swap">
+
+<style>
+/* ─────────────────────────────────────────────────────────────
+   Papyrus Handbook — design tokens
+   Paleta Google, herdada de public/css/tokens.css do projeto.
+   ───────────────────────────────────────────────────────────── */
+:root {
+  --blue:        #1a73e8;
+  --blue-strong: #1765cc;
+  --blue-soft:   #e8f0fe;
+  --green:       #188038;
+  --green-soft:  #e6f4ea;
+  --yellow:      #f9ab00;
+  --yellow-soft: #fef7e0;
+  --red:         #d93025;
+  --red-soft:    #fce8e6;
+  --purple:      #a142f4;
+  --purple-soft: #f3e8fd;
+
+  --ground:      #f8f9fa;
+  --surface:     #ffffff;
+  --surface-alt: #f1f3f4;
+  --code-bg:     #f8f9fa;
+  --border:      #e8eaed;
+  --border-hard: #dadce0;
+  --text:        #202124;
+  --text-muted:  #5f6368;
+  --text-faint:  #80868b;
+  --shadow-1: 0 1px 2px rgba(60,64,67,.10);
+  --shadow-2: 0 1px 3px rgba(60,64,67,.12), 0 4px 10px 2px rgba(60,64,67,.06);
+
+  --font-display: 'Roboto', 'Helvetica Neue', Arial, sans-serif;
+  --font-body:    'Roboto', 'Helvetica Neue', Arial, sans-serif;
+  --font-mono:    'Roboto Mono', Consolas, 'SF Mono', monospace;
+
+  --topbar: 56px;
+  --tabbar: 48px;
+  --ease: cubic-bezier(.2,0,0,1);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --blue:        #8ab4f8;
+    --blue-strong: #aecbfa;
+    --blue-soft:   #1f3143;
+    --green:       #81c995;
+    --green-soft:  #1e3428;
+    --yellow:      #fdd663;
+    --yellow-soft: #3a3020;
+    --red:         #f28b82;
+    --red-soft:    #3d2523;
+    --purple:      #d7aefb;
+    --purple-soft: #2f2438;
+
+    --ground:      #202124;
+    --surface:     #292a2d;
+    --surface-alt: #35363a;
+    --code-bg:     #1e1f21;
+    --border:      #3c4043;
+    --border-hard: #5f6368;
+    --text:        #e8eaed;
+    --text-muted:  #9aa0a6;
+    --text-faint:  #80868b;
+    --shadow-1: 0 1px 2px rgba(0,0,0,.4);
+    --shadow-2: 0 1px 3px rgba(0,0,0,.5), 0 4px 10px 2px rgba(0,0,0,.3);
+  }
+}
+
+:root[data-theme="dark"] {
+  --blue:        #8ab4f8;
+  --blue-strong: #aecbfa;
+  --blue-soft:   #1f3143;
+  --green:       #81c995;
+  --green-soft:  #1e3428;
+  --yellow:      #fdd663;
+  --yellow-soft: #3a3020;
+  --red:         #f28b82;
+  --red-soft:    #3d2523;
+  --purple:      #d7aefb;
+  --purple-soft: #2f2438;
+
+  --ground:      #202124;
+  --surface:     #292a2d;
+  --surface-alt: #35363a;
+  --code-bg:     #1e1f21;
+  --border:      #3c4043;
+  --border-hard: #5f6368;
+  --text:        #e8eaed;
+  --text-muted:  #9aa0a6;
+  --text-faint:  #80868b;
+  --shadow-1: 0 1px 2px rgba(0,0,0,.4);
+  --shadow-2: 0 1px 3px rgba(0,0,0,.5), 0 4px 10px 2px rgba(0,0,0,.3);
+}
+
+/* ── base ── */
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--ground);
+  color: var(--text);
+  font-family: var(--font-body);
+  font-size: 14.5px;
+  line-height: 1.65;
+  -webkit-font-smoothing: antialiased;
+}
+h1, h2, h3, h4 {
+  font-family: var(--font-display);
+  font-weight: 500;
+  letter-spacing: -.012em;
+  text-wrap: balance;
+  margin: 0;
+}
+a { color: var(--blue); text-decoration: none; }
+a:hover { text-decoration: underline; }
+:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; border-radius: 4px; }
+code, kbd, pre { font-family: var(--font-mono); }
+
+/* ── topbar ── */
+.topbar {
+  position: sticky; top: 0; z-index: 40;
+  height: var(--topbar);
+  display: flex; align-items: center; gap: 14px;
+  padding: 0 22px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.mark {
+  width: 26px; height: 26px; border-radius: 7px;
+  background: var(--blue); color: #fff;
+  display: grid; place-items: center;
+  font-family: var(--font-display); font-weight: 700; font-size: 14px;
+  flex: none;
+}
+:root[data-theme="dark"] .mark, :root:not([data-theme="light"]) .mark { color: #17181a; }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .mark { color: #fff; } }
+.wordmark { font-family: var(--font-display); font-weight: 500; font-size: 17px; letter-spacing: -.01em; }
+.version {
+  font-family: var(--font-mono); font-size: 11px;
+  color: var(--text-muted); border: 1px solid var(--border-hard);
+  padding: 1px 7px; border-radius: 999px;
+}
+.topbar__spacer { flex: 1; }
+.topbar__note { font-size: 12.5px; color: var(--text-faint); }
+@media (max-width: 720px) { .topbar__note { display: none; } }
+.ghost-btn {
+  font: inherit; font-size: 12.5px;
+  background: transparent; color: var(--text-muted);
+  border: 1px solid var(--border-hard); border-radius: 999px;
+  padding: 5px 13px; cursor: pointer;
+  transition: background .15s var(--ease), color .15s var(--ease);
+}
+.ghost-btn:hover { background: var(--surface-alt); color: var(--text); }
+
+/* ── tabs ── */
+.tabbar {
+  position: sticky; top: var(--topbar); z-index: 35;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  padding: 0 12px;
+  overflow-x: auto; overflow-y: hidden;
+  scrollbar-width: none;
+}
+.tabbar::-webkit-scrollbar { display: none; }
+.tabbar__inner { display: flex; gap: 2px; min-width: max-content; }
+.tab {
+  position: relative;
+  font: inherit; font-family: var(--font-display); font-size: 13.5px; font-weight: 500;
+  letter-spacing: .008em;
+  background: none; border: 0; cursor: pointer;
+  color: var(--text-muted);
+  padding: 0 16px; height: var(--tabbar);
+  white-space: nowrap;
+  transition: color .15s var(--ease);
+}
+.tab:hover { color: var(--text); }
+.tab::after {
+  content: ""; position: absolute; left: 8px; right: 8px; bottom: 0;
+  height: 3px; border-radius: 3px 3px 0 0;
+  background: var(--blue);
+  transform: scaleX(0); transform-origin: center;
+  transition: transform .2s var(--ease);
+}
+.tab[aria-selected="true"] { color: var(--blue); }
+.tab[aria-selected="true"]::after { transform: scaleX(1); }
+.tab__idx {
+  font-family: var(--font-mono); font-size: 10.5px; font-weight: 400;
+  color: var(--text-faint); margin-right: 6px;
+}
+.tab[aria-selected="true"] .tab__idx { color: var(--blue); }
+
+/* ── layout ── */
+.shell {
+  max-width: 1240px; margin: 0 auto;
+  display: grid; grid-template-columns: minmax(0,1fr) 232px;
+  gap: 48px; padding: 34px 26px 96px;
+  align-items: start;
+}
+@media (max-width: 1060px) { .shell { grid-template-columns: minmax(0,1fr); gap: 0; } .toc { display: none; } }
+.panel { display: none; min-width: 0; }
+.panel.is-active { display: block; }
+.doc { max-width: 76ch; }
+
+/* ── índice lateral ── */
+.toc { position: sticky; top: calc(var(--topbar) + var(--tabbar) + 30px); }
+.toc__title {
+  font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .09em;
+  text-transform: uppercase; color: var(--text-faint);
+  padding-bottom: 10px;
+}
+.toc__list { display: flex; flex-direction: column; border-left: 1px solid var(--border); }
+.toc__link {
+  font-size: 12.8px; color: var(--text-muted);
+  padding: 5px 0 5px 14px; margin-left: -1px;
+  border-left: 2px solid transparent; line-height: 1.45;
+}
+.toc__link:hover { color: var(--text); text-decoration: none; }
+.toc__link.is-current { color: var(--blue); border-left-color: var(--blue); }
+
+/* ── tipografia do conteúdo ── */
+.eyebrow {
+  font-family: var(--font-mono); font-size: 11px; letter-spacing: .1em;
+  text-transform: uppercase; color: var(--blue); margin-bottom: 10px;
+}
+.doc h2 { font-size: 30px; line-height: 1.22; margin-bottom: 12px; }
+.doc h3 {
+  font-size: 19px; margin: 40px 0 10px;
+  padding-top: 22px; border-top: 1px solid var(--border);
+  scroll-margin-top: calc(var(--topbar) + var(--tabbar) + 20px);
+}
+.doc h3:first-of-type { border-top: 0; padding-top: 0; margin-top: 28px; }
+.doc h4 { font-size: 15px; margin: 24px 0 6px; }
+.doc p { margin: 12px 0; }
+.lede { font-size: 17px; line-height: 1.6; color: var(--text-muted); margin-top: 0; }
+.doc ul, .doc ol { margin: 12px 0; padding-left: 22px; }
+.doc li { margin: 6px 0; }
+.doc li::marker { color: var(--text-faint); }
+strong { font-weight: 500; color: var(--text); }
+p code, li code, td code {
+  font-size: .87em; background: var(--surface-alt);
+  border: 1px solid var(--border); border-radius: 4px;
+  padding: .5px 5px; color: var(--text);
+}
+
+/* ── blocos de código ── */
+.code {
+  position: relative; margin: 18px 0;
+  background: var(--code-bg); border: 1px solid var(--border);
+  border-radius: 10px; overflow: hidden;
+}
+.code__head {
+  display: flex; align-items: center; gap: 10px;
+  padding: 7px 10px 7px 14px;
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+.code__name { font-family: var(--font-mono); font-size: 11.5px; color: var(--text-muted); flex: 1; }
+.code pre {
+  margin: 0; padding: 14px 16px; overflow-x: auto;
+  font-size: 12.6px; line-height: 1.62; color: var(--text);
+  tab-size: 2;
+}
+.copy {
+  font: inherit; font-family: var(--font-mono); font-size: 11px;
+  background: transparent; border: 1px solid var(--border-hard);
+  color: var(--text-muted); border-radius: 999px; padding: 3px 10px; cursor: pointer;
+  flex: none;
+}
+.copy:hover { background: var(--surface-alt); color: var(--text); }
+.copy.is-done { color: var(--green); border-color: var(--green); }
+.tok-c { color: var(--text-faint); font-style: italic; }
+.tok-k { color: var(--purple); }
+.tok-s { color: var(--green); }
+.tok-n { color: var(--blue); }
+
+/* ── notas ── */
+.note {
+  display: grid; grid-template-columns: 3px 1fr; gap: 0 16px;
+  margin: 20px 0; border-radius: 8px; overflow: hidden;
+  background: var(--surface); border: 1px solid var(--border);
+}
+.note__bar { background: var(--blue); }
+.note__body { padding: 12px 16px 13px 0; }
+.note__label {
+  font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .08em;
+  text-transform: uppercase; color: var(--blue); display: block; margin-bottom: 3px;
+}
+.note p { margin: 0; font-size: 13.6px; color: var(--text-muted); }
+.note p + p { margin-top: 8px; }
+.note--warn .note__bar { background: var(--yellow); }
+.note--warn .note__label { color: var(--yellow); }
+.note--danger .note__bar { background: var(--red); }
+.note--danger .note__label { color: var(--red); }
+.note--ok .note__bar { background: var(--green); }
+.note--ok .note__label { color: var(--green); }
+
+/* ── tabelas ── */
+.table-wrap { overflow-x: auto; margin: 18px 0; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); }
+table { border-collapse: collapse; width: 100%; font-size: 13.2px; min-width: 460px; }
+th {
+  text-align: left; font-family: var(--font-display); font-weight: 500; font-size: 12px;
+  letter-spacing: .04em; text-transform: uppercase; color: var(--text-muted);
+  padding: 11px 16px; border-bottom: 1px solid var(--border); white-space: nowrap;
+}
+td { padding: 11px 16px; border-bottom: 1px solid var(--border); vertical-align: top; }
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:hover { background: var(--surface-alt); }
+td.mono, th.mono { font-family: var(--font-mono); font-size: 12.2px; white-space: nowrap; }
+.num { font-variant-numeric: tabular-nums; text-align: right; }
+
+/* ── chips ── */
+.chip {
+  display: inline-block; font-family: var(--font-mono); font-size: 10.5px;
+  font-weight: 500; letter-spacing: .04em;
+  padding: 2px 8px; border-radius: 999px; white-space: nowrap;
+}
+.chip--get    { background: var(--blue-soft);   color: var(--blue); }
+.chip--post   { background: var(--green-soft);  color: var(--green); }
+.chip--put    { background: var(--yellow-soft); color: var(--yellow); }
+.chip--patch  { background: var(--purple-soft); color: var(--purple); }
+.chip--del    { background: var(--red-soft);    color: var(--red); }
+
+/* ── stat row ── */
+.stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(126px,1fr)); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 24px 0; }
+.stat { background: var(--surface); padding: 14px 16px; }
+.stat__n { font-family: var(--font-display); font-size: 24px; font-weight: 500; letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.stat__l { font-size: 11.5px; color: var(--text-muted); margin-top: 1px; }
+
+/* ── diagrama ── */
+.figure { margin: 26px 0; }
+.figure svg { width: 100%; height: auto; display: block; }
+.figure__cap { font-size: 12.3px; color: var(--text-faint); margin-top: 10px; }
+
+/* ── acordeões ── */
+.why { border: 1px solid var(--border); border-radius: 10px; background: var(--surface); margin: 12px 0; overflow: hidden; }
+.why > summary {
+  cursor: pointer; list-style: none; padding: 12px 16px;
+  display: flex; align-items: center; gap: 11px;
+  font-size: 13.8px; font-weight: 500; font-family: var(--font-display);
+}
+.why > summary::-webkit-details-marker { display: none; }
+.why > summary:hover { background: var(--surface-alt); }
+.why__caret { color: var(--text-faint); transition: transform .18s var(--ease); flex: none; }
+.why[open] .why__caret { transform: rotate(90deg); }
+.why__file { font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); margin-left: auto; white-space: nowrap; }
+.why__body { padding: 0 16px 14px; border-top: 1px solid var(--border); }
+.why__body p:first-child { margin-top: 13px; }
+@media (max-width: 620px) { .why__file { display: none; } }
+
+/* ── mapa do código ── */
+.filterbar { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin: 22px 0 6px; }
+.search {
+  flex: 1; min-width: 210px;
+  font: inherit; font-size: 13.5px;
+  padding: 9px 14px; border-radius: 999px;
+  border: 1px solid var(--border-hard); background: var(--surface); color: var(--text);
+}
+.search::placeholder { color: var(--text-faint); }
+.search:focus { outline: none; border-color: var(--blue); box-shadow: 0 0 0 3px rgba(26,115,232,.16); }
+.pills { display: flex; gap: 6px; flex-wrap: wrap; }
+.pill {
+  font: inherit; font-size: 12px; font-family: var(--font-display); font-weight: 500;
+  padding: 6px 13px; border-radius: 999px; cursor: pointer;
+  border: 1px solid var(--border-hard); background: var(--surface); color: var(--text-muted);
+}
+.pill:hover { background: var(--surface-alt); }
+.pill[aria-pressed="true"] { background: var(--blue); border-color: var(--blue); color: #fff; }
+:root[data-theme="dark"] .pill[aria-pressed="true"] { color: #17181a; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .pill[aria-pressed="true"] { color: #17181a; } }
+.hits { font-size: 12.5px; color: var(--text-faint); margin: 14px 0 4px; font-variant-numeric: tabular-nums; }
+
+.files { display: flex; flex-direction: column; gap: 10px; margin-top: 6px; }
+.file {
+  border: 1px solid var(--border); border-left: 3px solid var(--layer, var(--border-hard));
+  border-radius: 8px; background: var(--surface); padding: 14px 16px;
+}
+.file__top { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.file__path { font-family: var(--font-mono); font-size: 13px; font-weight: 500; color: var(--text); }
+.file__lines { font-family: var(--font-mono); font-size: 11px; color: var(--text-faint); margin-left: auto; font-variant-numeric: tabular-nums; }
+.file__layer { font-family: var(--font-mono); font-size: 10.5px; letter-spacing: .05em; text-transform: uppercase; color: var(--layer, var(--text-faint)); }
+.file__what { font-size: 13.6px; margin: 7px 0 0; }
+.file__why { font-size: 13.2px; color: var(--text-muted); margin: 7px 0 0; }
+.file__why b { color: var(--text); font-weight: 500; }
+.file__keys { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 10px; }
+.key {
+  font-family: var(--font-mono); font-size: 11px;
+  background: var(--surface-alt); border: 1px solid var(--border);
+  color: var(--text-muted); padding: 2px 7px; border-radius: 5px;
+}
+.empty { padding: 30px 0; color: var(--text-faint); font-size: 13.5px; text-align: center; }
+
+/* ── grade de atalhos ── */
+.keys { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px,1fr)); gap: 1px; background: var(--border); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; margin: 18px 0; }
+.keyrow { background: var(--surface); padding: 9px 14px; display: flex; align-items: center; justify-content: space-between; gap: 12px; font-size: 13px; }
+kbd {
+  font-size: 11px; background: var(--surface-alt); color: var(--text);
+  border: 1px solid var(--border-hard); border-bottom-width: 2px;
+  border-radius: 5px; padding: 1px 6px; white-space: nowrap;
+}
+
+/* ── passo a passo ── */
+.steps { counter-reset: s; list-style: none; padding: 0; margin: 20px 0; display: flex; flex-direction: column; gap: 2px; }
+.steps li { counter-increment: s; display: grid; grid-template-columns: 30px 1fr; gap: 14px; padding: 11px 0; border-bottom: 1px solid var(--border); margin: 0; }
+.steps li:last-child { border-bottom: 0; }
+.steps li::before {
+  content: counter(s); grid-row: span 2;
+  width: 26px; height: 26px; border-radius: 50%;
+  background: var(--blue-soft); color: var(--blue);
+  font-family: var(--font-mono); font-size: 12px; font-weight: 500;
+  display: grid; place-items: center;
+}
+.steps b { display: block; font-weight: 500; }
+.steps span { color: var(--text-muted); font-size: 13.4px; }
+
+.footer { border-top: 1px solid var(--border); margin-top: 56px; padding-top: 20px; font-size: 12.5px; color: var(--text-faint); }
+
+@media (prefers-reduced-motion: reduce) {
+  * { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
+html { scroll-behavior: smooth; }
+</style>
+
+<header class="topbar">
+  <div class="mark">P</div>
+  <span class="wordmark">Papyrus</span>
+  <span class="version">v2.5.0</span>
+  <span class="topbar__spacer"></span>
+  <span class="topbar__note">Planejamento de mensuração e mapas de coleta para GA4</span>
+  <button class="ghost-btn" id="theme-btn" type="button">Tema</button>
+</header>
+
+<nav class="tabbar" role="tablist" aria-label="Seções da documentação">
+  <div class="tabbar__inner" id="tabbar"></div>
+</nav>
+
+<div class="shell">
+  <div id="panels">
+
+    <!-- ══════════════════ 1. VISÃO GERAL ══════════════════ -->
+    <section class="panel doc" data-panel="overview" role="tabpanel">
+      <p class="eyebrow">Visão geral</p>
+      <h2>Um canvas que termina em contrato de coleta</h2>
+      <p class="lede">
+        O Papyrus é uma ferramenta de planejamento de mensuração para o Google Analytics 4.
+        Você desenha a arquitetura de dados de uma tela — print de referência, pins nos pontos de
+        interação, cards de evento com parâmetros tipados — e a mesma página vira um JSON que o
+        time de engenharia implementa sem redigitar nada.
+      </p>
+
+      <div class="stats">
+        <div class="stat"><div class="stat__n">32</div><div class="stat__l">arquivos de código</div></div>
+        <div class="stat"><div class="stat__n">9.695</div><div class="stat__l">linhas</div></div>
+        <div class="stat"><div class="stat__n">1</div><div class="stat__l">dependência de runtime</div></div>
+        <div class="stat"><div class="stat__n">0</div><div class="stat__l">passos de build</div></div>
+      </div>
+
+      <h3 id="ov-problema">O problema que ele resolve</h3>
+      <p>
+        Planejamento de mensuração costuma morar em três lugares ao mesmo tempo: uma planilha com os
+        eventos, um Figma com as telas anotadas e um ticket com a descrição do gatilho. Os três
+        divergem na primeira semana. O Papyrus junta os três em um artefato só — o mapa é o desenho,
+        a especificação e o contrato — e faz o caminho terminar em um arquivo único, versionado, no
+        Google Cloud Storage.
+      </p>
+      <p>
+        A consequência prática: o parâmetro que o analista digitou no card é literalmente o mesmo
+        texto que aparece no <code>dataLayer.push</code> gerado para o desenvolvedor, e o mesmo que sai
+        no JSON do bucket. Não há transcrição no meio, então não há erro de transcrição.
+      </p>
+
+      <h3 id="ov-ciclo">O ciclo completo</h3>
+      <ol class="steps">
+        <li><b>Desenhar</b><span>Cole o print da tela, marque os pontos com pins e crie os cards de evento no canvas infinito.</span></li>
+        <li><b>Especificar</b><span>No inspetor, cada card recebe nome, tipo, plataformas, gatilho, governança e as tabelas de parâmetros tipados.</span></li>
+        <li><b>Validar</b><span>O validador roda continuamente: snake_case, nomes reservados do GA4, limites da plataforma, parâmetro duplicado, <code>event_id</code> repetido.</span></li>
+        <li><b>Consolidar</b><span>O Dicionário Global varre o workspace inteiro e mostra o mesmo parâmetro declarado com tipos diferentes — o erro de schema que sai caro no BigQuery.</span></li>
+        <li><b>Entregar</b><span>O card gera <code>dataLayer.push</code>, <code>gtag()</code> ou JSON Schema; o botão Exportar publica o contrato do workspace inteiro no bucket.</span></li>
+      </ol>
+
+      <h3 id="ov-para-quem">Para quem é</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Papel</th><th>O que faz aqui</th></tr></thead>
+          <tbody>
+            <tr><td>Analista de dados / Analytics</td><td>Desenha o mapa, define nomes e tipos, mantém a taxonomia coerente pelo Dicionário Global.</td></tr>
+            <tr><td>Product Manager</td><td>Vê a tela anotada e entende o que será medido antes de a implementação começar.</td></tr>
+            <tr><td>Desenvolvedor front-end</td><td>Copia o snippet do card, já com os nomes certos e o comentário de governança no cabeçalho.</td></tr>
+            <tr><td>QA</td><td>Usa os valores de exemplo e o JSON Schema para conferir o payload real.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 id="ov-stack">A stack, e o que ela não tem</h3>
+      <p>
+        Node com Express no servidor, JavaScript com módulos ES nativos no navegador e
+        <a href="https://konvajs.org" target="_blank" rel="noopener">Konva</a> para o canvas. Não há
+        React, bundler, TypeScript nem etapa de build: o navegador carrega os arquivos
+        <code>.js</code> como estão no disco. <code>npm start</code> e a ferramenta está no ar em
+        cerca de um segundo.
+      </p>
+      <div class="note">
+        <div class="note__bar"></div>
+        <div class="note__body">
+          <span class="note__label">Nota de projeto</span>
+          <p>
+            A única dependência de runtime obrigatória é o <code>express</code>. O <code>konva</code> é
+            servido a partir do <code>node_modules</code> pelo próprio servidor, então a ferramenta
+            funciona offline, e o <code>@google-cloud/storage</code> é carregado por import dinâmico
+            apenas na hora do upload — sem ele, tudo continua funcionando menos o botão Exportar.
+          </p>
+        </div>
+      </div>
+    </section>
+
+    <!-- ══════════════════ 2. INSTALAÇÃO ══════════════════ -->
+    <section class="panel doc" data-panel="setup" role="tabpanel">
+      <p class="eyebrow">Requisitos e instalação</p>
+      <h2>Do clone ao primeiro mapa</h2>
+      <p class="lede">
+        O Papyrus roda em qualquer máquina com Node. Não há banco de dados, container, nem serviço
+        externo obrigatório — o estado inteiro é uma pasta de arquivos JSON no disco.
+      </p>
+
+      <h3 id="su-requisitos">Requisitos</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Item</th><th>Versão</th><th>Observação</th></tr></thead>
+          <tbody>
+            <tr><td>Node.js</td><td class="mono">≥ 18</td><td>Declarado em <code>engines</code>. Testado no Node 24.</td></tr>
+            <tr><td>npm</td><td class="mono">qualquer</td><td>Acompanha o Node.</td></tr>
+            <tr><td>Navegador</td><td>atual</td><td>Precisa de módulos ES e <code>structuredClone</code>.</td></tr>
+            <tr><td>Google Cloud Storage</td><td>opcional</td><td>Só para o botão Exportar. O resto funciona sem.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 id="su-instalar">Instalar e subir</h3>
+      <div class="code">
+        <div class="code__head"><span class="code__name">bash</span><button class="copy" type="button">copiar</button></div>
+<pre><span class="tok-c"># na raiz do projeto</span>
+npm install
+npm start
+
+<span class="tok-c"># abra http://localhost:4173</span></pre>
+      </div>
+      <p>Durante o desenvolvimento, <code>npm run dev</code> sobe com <code>node --watch</code> e recarrega o back-end a cada alteração.</p>
+
+      <h3 id="su-env">Variáveis de ambiente</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th class="mono">Variável</th><th>Padrão</th><th>Para quê</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">PORT</td><td class="mono">4173</td><td>Porta do servidor.</td></tr>
+            <tr><td class="mono">PAPYRUS_DIR</td><td class="mono">./papyrus</td><td>Pasta de trabalho. Aponte para um repositório versionado ou um drive compartilhado.</td></tr>
+            <tr><td class="mono">GCS_BUCKET</td><td>—</td><td>Bucket de destino do export.</td></tr>
+            <tr><td class="mono">GCS_PREFIX</td><td>—</td><td>Pasta base dentro do bucket, ex.: <code>papyrus/</code>.</td></tr>
+            <tr><td class="mono">GCS_KEYFILE</td><td>—</td><td>Caminho do JSON da service account.</td></tr>
+            <tr><td class="mono">GCS_PROJECT_ID</td><td>—</td><td>Projeto do GCP, quando não vier da credencial.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="code">
+        <div class="code__head"><span class="code__name">PowerShell e Bash</span><button class="copy" type="button">copiar</button></div>
+<pre><span class="tok-c"># PowerShell</span>
+$env:PORT=<span class="tok-n">3000</span>; npm start
+$env:PAPYRUS_DIR=<span class="tok-s">"D:\meus-mapas"</span>; npm start
+
+<span class="tok-c"># Bash</span>
+PORT=<span class="tok-n">3000</span> npm start
+PAPYRUS_DIR=/srv/mapas npm start</pre>
+      </div>
+      <p>
+        Variável de ambiente sempre vence a configuração salva pela interface. Na aba Configurações,
+        o campo fixado por env aparece desabilitado, para ninguém editar um valor que não teria efeito.
+      </p>
+
+      <h3 id="su-estrutura">O que é criado no primeiro boot</h3>
+      <p><code>ensureBaseStructure()</code> garante a estrutura mínima antes de o servidor aceitar requisições:</p>
+      <div class="code">
+        <div class="code__head"><span class="code__name">papyrus/</span><button class="copy" type="button">copiar</button></div>
+<pre>papyrus/
+├── _assets/                 <span class="tok-c"># imagens coladas, agrupadas por dia</span>
+│   └── 2026-09-07/
+│       └── 7f3c….png
+├── _system/                 <span class="tok-c"># configuração interna, fora do conteúdo</span>
+│   ├── folder-colors.json
+│   ├── parameter-groups.json
+│   ├── gcs.json
+│   └── gcs-service-account.json
+└── queroabacate.com/        <span class="tok-c"># suas pastas e páginas</span>
+    └── home/
+        └── home.json</pre>
+      </div>
+      <p>
+        As duas pastas com <code>_</code> são reservadas: ficam fora da árvore de navegação e seus
+        nomes não podem ser usados por pastas ou páginas suas.
+      </p>
+
+      <h3 id="su-gcs">Configurar o Google Cloud Storage</h3>
+      <ol class="steps">
+        <li><b>Instale o pacote</b><span><code>npm install @google-cloud/storage</code> e reinicie o servidor. Ele não vem por padrão para a ferramenta continuar leve e offline.</span></li>
+        <li><b>Crie uma service account</b><span>Com permissão de escrita no bucket (<code>Storage Object Creator</code> basta).</span></li>
+        <li><b>Cole o JSON</b><span>Na aba Configurações, informe bucket, prefixo e cole o conteúdo da chave no campo mascarado.</span></li>
+        <li><b>Teste antes de salvar</b><span>O botão Testar valida biblioteca, credencial e acesso ao bucket usando os valores que estão na tela.</span></li>
+      </ol>
+      <div class="note note--warn">
+        <div class="note__bar"></div>
+        <div class="note__body">
+          <span class="note__label">Como a credencial é guardada</span>
+          <p>
+            A chave privada é gravada em <code>_system/gcs-service-account.json</code> e o
+            <code>gcs.json</code> guarda só o caminho dela — a chave nunca entra no arquivo de
+            configuração e nunca volta para o navegador. A API devolve apenas o booleano
+            <code>hasCredential</code>. Se a pasta <code>papyrus</code> for versionada, adicione
+            <code>_system/gcs-service-account.json</code> ao <code>.gitignore</code>.
+          </p>
+        </div>
+      </div>
+
+      <h3 id="su-portaocupada">Quando a porta está ocupada</h3>
+      <p>
+        O servidor trata <code>EADDRINUSE</code> explicitamente, porque o caso quase sempre é o próprio
+        Papyrus já rodando em outra janela de terminal. Em vez de um stack trace do Node, ele imprime o
+        que fazer:
+      </p>
+      <div class="code">
+        <div class="code__head"><span class="code__name">saída do terminal</span><button class="copy" type="button">copiar</button></div>
+<pre>  A porta 4173 ja esta em uso.
+
+  Provavelmente o Papyrus ja esta rodando. Tente abrir
+  http://localhost:4173 antes de subir outra instancia.
+
+  Se quiser rodar em outra porta:
+     PowerShell   $env:PORT=4174; npm start
+     Bash         PORT=4174 npm start</pre>
+      </div>
+    </section>
+
+    <!-- ══════════════════ 3. COMO USAR ══════════════════ -->
+    <section class="panel doc" data-panel="usage" role="tabpanel">
+      <p class="eyebrow">Como usar</p>
+      <h2>Do print de tela ao JSON no bucket</h2>
+      <p class="lede">
+        A ferramenta tem quatro abas — Canvas, Grupos de Parâmetros, Dicionário Global e Configurações —
+        e um fluxo recomendado que atravessa as três primeiras.
+      </p>
+
+      <h3 id="us-fluxo">Fluxo recomendado</h3>
+      <ol class="steps">
+        <li><b>Crie a página</b><span>Pastas e páginas na barra lateral são pastas e arquivos de verdade no disco.</span></li>
+        <li><b>Cole o print <kbd>Ctrl</kbd>+<kbd>V</kbd></b><span>A imagem vai para <code>_assets/</code> e o documento guarda só a URL.</span></li>
+        <li><b>Marque os pontos <kbd>P</kbd></b><span>Pins numerados sobre os elementos que disparam eventos.</span></li>
+        <li><b>Crie os cards <kbd>E</kbd></b><span>Cada card já nasce com um <code>event_id</code> preenchido.</span></li>
+        <li><b>Conecte <kbd>C</kbd></b><span>O conector é magnético: escolhe sozinho o par de âncoras mais curto e acompanha o card quando ele é movido.</span></li>
+        <li><b>Valide no rodapé</b><span>Erro bloqueia a exportação; aviso não. Clicar em um problema dá zoom no card.</span></li>
+        <li><b>Exporte</b><span>O escopo é sempre o workspace inteiro, nunca uma página isolada.</span></li>
+      </ol>
+
+      <h3 id="us-card">O Card de Evento</h3>
+      <p>
+        É o elemento central. No canvas ele é o resumo; no inspetor, a ficha completa — cerca de vinte
+        campos mais três tabelas de parâmetros. A cor da tarja codifica o tipo, e a codificação é
+        funcional, não decorativa:
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Tipo</th><th class="mono">id</th><th>Cor</th><th>Quando usar</th></tr></thead>
+          <tbody>
+            <tr><td>View</td><td class="mono">view</td><td><span class="chip chip--get">#1A73E8</span></td><td>Visualização de tela ou conteúdo.</td></tr>
+            <tr><td>Interaction</td><td class="mono">interaction</td><td><span class="chip chip--post">#188038</span></td><td>Ação deliberada do usuário. É o padrão.</td></tr>
+            <tr><td>Ecommerce</td><td class="mono">ecommerce</td><td><span class="chip chip--put">#F9AB00</span></td><td>Ativa a tabela <code>items[]</code> com os 18 parâmetros padrão do GA4.</td></tr>
+            <tr><td>Automatic</td><td class="mono">automatic</td><td><span class="chip chip--patch">#A142F4</span></td><td>Evento coletado automaticamente. É o único tipo que pode usar nome reservado.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        Três escopos de parâmetro convivem no card: <b>Parâmetros de Evento</b>, <b>Propriedades de
+        Usuário</b> e <b>Parâmetros de Item</b> — este último só aparece em cards Ecommerce. Cada
+        parâmetro tem nome, tipo, obrigatoriedade, valor de exemplo e descrição.
+      </p>
+
+      <h3 id="us-eventid">O <code>event_id</code></h3>
+      <p>
+        Toda coleta precisa de uma chave que amarre o planejamento ao dado que chega no GA4. O Papyrus
+        cria essa chave sozinho, em três partes separadas por hífen:
+      </p>
+      <div class="code">
+        <div class="code__head"><span class="code__name">formato do event_id</span><button class="copy" type="button">copiar</button></div>
+<pre>d102111109101 - p1757203200 - 6k3f9zq
+│                │             └── 6 + sufixo aleatório de 6 caracteres
+│                └──────────────── p + timestamp atual em segundos
+└───────────────────────────────── d + código ASCII de cada letra da pasta</pre>
+      </div>
+      <p>
+        Os códigos ASCII vão sempre com três dígitos e zero à esquerda. Sem esse preenchimento,
+        <code>"AB"</code> (65, 66) e <code>"6566"</code> produziriam a mesma string e o prefixo
+        deixaria de identificar a pasta. Página na raiz usa <code>papyrus</code> como pasta.
+      </p>
+      <div class="note note--ok">
+        <div class="note__bar"></div>
+        <div class="note__body">
+          <span class="note__label">Copiar nunca copia a chave</span>
+          <p>
+            Colar cards, duplicar com <kbd>Ctrl</kbd>+<kbd>D</kbd> e duplicar a página inteira geram um
+            <code>event_id</code> novo para cada cópia. Dois cards com o mesmo id virariam o mesmo evento
+            no GA4 — e o validador trata isso como erro, não como aviso.
+          </p>
+        </div>
+      </div>
+
+      <h3 id="us-nomes">Nomes únicos no workspace</h3>
+      <p>
+        Dentro de <code>papyrus</code> não existem dois nomes iguais: nem duas páginas, nem duas pastas,
+        nem uma pasta e uma página compartilhando o nome. A regra vale para o workspace inteiro, não
+        para a pasta onde o item nasce, e a comparação ignora a caixa da letra.
+      </p>
+      <p>
+        O motivo está no exportador: o JSON usa o nome da página como chave raiz, e chave de objeto não
+        se repete. Com dois nomes iguais, uma página sobrescreveria a outra e o contrato chegaria ao
+        bucket com eventos faltando, sem nenhum aviso.
+      </p>
+      <div class="note note--danger">
+        <div class="note__bar"></div>
+        <div class="note__body">
+          <span class="note__label">Nada é renomeado em silêncio</span>
+          <p>
+            Antes, um nome ocupado virava <code>home (2)</code>. Hoje a tentativa é recusada com uma
+            mensagem que diz qual item usa o nome e em que pasta ele está. Vale para criar página, criar
+            pasta, renomear, mover e importar. Duplicar uma página pede o nome da cópia, já preenchido
+            com a primeira sugestão livre.
+          </p>
+        </div>
+      </div>
+
+      <h3 id="us-grupos">Grupos de Parâmetros</h3>
+      <p>
+        Um grupo é um conjunto nomeado de parâmetros que se repetem — "Contexto de Página",
+        "Identificação do Usuário", "Dados do Produto". O card importa o grupo inteiro de uma vez, e é
+        assim que o mesmo parâmetro mantém nome e tipo iguais no workspace todo. O importador recalcula
+        conflitos em tempo real e só libera a importação quando não há colisão com o que o card já tem.
+      </p>
+
+      <h3 id="us-dicionario">Dicionário Global</h3>
+      <p>
+        Consolida o workspace inteiro em três visões: todo evento e onde ele mora, os parâmetros únicos
+        com o de-para dos eventos que os usam, e os conflitos de tipo — o mesmo parâmetro declarado como
+        <code>string</code> em uma página e <code>int</code> em outra. Esse é o erro que só aparece
+        depois, quando o dado já está no BigQuery. Fecha com a lista de <code>event_id</code> repetido
+        entre páginas, colisão que nenhuma página consegue enxergar sozinha.
+      </p>
+
+      <h3 id="us-saidas">As duas saídas</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th></th><th>Tirar foto</th><th>Exportar</th></tr></thead>
+          <tbody>
+            <tr><td>Conteúdo</td><td>PNG ou JPG do canvas</td><td>JSON só com regra de negócio</td></tr>
+            <tr><td>Escopo</td><td>Página aberta, ou só a seleção</td><td>Workspace inteiro, sempre</td></tr>
+            <tr><td>Destino</td><td>Download no navegador</td><td>Bucket do Google Cloud Storage</td></tr>
+            <tr><td>Por quê</td><td>Material de apresentação, vida curta</td><td>Contrato de coleta, endereço único</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        A foto sai recortada no conteúdo, de 2× a 4×, com fundo branco, cinza ou transparente. O export
+        recusa página isolada de propósito: contratos parciais circulando em paralelo, cada um dizendo
+        uma coisa, são o problema que o arquivo único resolve.
+      </p>
+      <div class="code">
+        <div class="code__head"><span class="code__name">estrutura do JSON exportado</span><button class="copy" type="button">copiar</button></div>
+<pre>{
+  <span class="tok-s">"Checkout"</span>: [
+    {
+      <span class="tok-s">"event_name"</span>: <span class="tok-s">"begin_checkout"</span>,
+      <span class="tok-s">"event_type"</span>: <span class="tok-s">"ecommerce"</span>,
+      <span class="tok-s">"platform"</span>: [<span class="tok-s">"web"</span>, <span class="tok-s">"app"</span>],
+      <span class="tok-s">"trigger"</span>: <span class="tok-s">"Clique em 'Finalizar compra' no carrinho"</span>,
+      <span class="tok-s">"governance"</span>: { <span class="tok-s">"squad"</span>: <span class="tok-s">"Checkout"</span>, <span class="tok-s">"owner"</span>: <span class="tok-s">"…"</span>, <span class="tok-s">"notes"</span>: <span class="tok-s">"…"</span> },
+      <span class="tok-s">"tracker"</span>: { <span class="tok-s">"card_name"</span>: <span class="tok-s">"…"</span>, <span class="tok-s">"card_id"</span>: <span class="tok-s">"ANA-1234"</span>, <span class="tok-s">"url"</span>: <span class="tok-s">"…"</span> },
+      <span class="tok-s">"parameters"</span>: {
+        <span class="tok-s">"event"</span>: [{ <span class="tok-s">"name"</span>: <span class="tok-s">"event_id"</span>, <span class="tok-s">"type"</span>: <span class="tok-s">"string"</span>, <span class="tok-s">"required"</span>: <span class="tok-k">true</span> }],
+        <span class="tok-s">"user"</span>:  [{ <span class="tok-s">"name"</span>: <span class="tok-s">"user_id"</span>, <span class="tok-s">"type"</span>: <span class="tok-s">"string"</span>, <span class="tok-s">"required"</span>: <span class="tok-k">false</span> }],
+        <span class="tok-s">"items"</span>: [{ <span class="tok-s">"name"</span>: <span class="tok-s">"item_id"</span>, <span class="tok-s">"type"</span>: <span class="tok-s">"string"</span>, <span class="tok-s">"required"</span>: <span class="tok-k">true</span> }]
+      }
+    }
+  ]
+}</pre>
+      </div>
+      <p>Nenhuma coordenada, cor ou elemento visual entra no arquivo. Só o que é regra de negócio.</p>
+
+      <h3 id="us-atalhos">Atalhos de teclado</h3>
+      <div class="keys">
+        <div class="keyrow"><span>Selecionar</span><kbd>V</kbd></div>
+        <div class="keyrow"><span>Navegar (pan)</span><span><kbd>H</kbd> ou <kbd>Espaço</kbd></span></div>
+        <div class="keyrow"><span>Card de evento</span><kbd>E</kbd></div>
+        <div class="keyrow"><span>Nota adesiva</span><kbd>N</kbd></div>
+        <div class="keyrow"><span>Texto</span><kbd>T</kbd></div>
+        <div class="keyrow"><span>Retângulo</span><kbd>R</kbd></div>
+        <div class="keyrow"><span>Círculo</span><kbd>O</kbd></div>
+        <div class="keyrow"><span>Pin</span><kbd>P</kbd></div>
+        <div class="keyrow"><span>Conector</span><kbd>C</kbd></div>
+        <div class="keyrow"><span>Colar print / elementos</span><span><kbd>Ctrl</kbd>+<kbd>V</kbd></span></div>
+        <div class="keyrow"><span>Duplicar</span><span><kbd>Ctrl</kbd>+<kbd>D</kbd></span></div>
+        <div class="keyrow"><span>Desfazer</span><span><kbd>Ctrl</kbd>+<kbd>Z</kbd></span></div>
+        <div class="keyrow"><span>Refazer</span><span><kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd></span></div>
+        <div class="keyrow"><span>Selecionar tudo</span><span><kbd>Ctrl</kbd>+<kbd>A</kbd></span></div>
+        <div class="keyrow"><span>Salvar agora</span><span><kbd>Ctrl</kbd>+<kbd>S</kbd></span></div>
+        <div class="keyrow"><span>Excluir seleção</span><kbd>Delete</kbd></div>
+        <div class="keyrow"><span>Mover 1px / 10px</span><span><kbd>Setas</kbd> / <kbd>Shift</kbd>+<kbd>Setas</kbd></span></div>
+        <div class="keyrow"><span>Zoom</span><span><kbd>Ctrl</kbd>+<kbd>Scroll</kbd></span></div>
+        <div class="keyrow"><span>Zoom 100%</span><span><kbd>Ctrl</kbd>+<kbd>0</kbd></span></div>
+        <div class="keyrow"><span>Enquadrar conteúdo</span><span><kbd>Shift</kbd>+<kbd>1</kbd></span></div>
+        <div class="keyrow"><span>Barra lateral</span><kbd>[</kbd></div>
+        <div class="keyrow"><span>Inspetor</span><kbd>]</kbd></div>
+        <div class="keyrow"><span>Esta ajuda</span><kbd>?</kbd></div>
+      </div>
+    </section>
+
+    <!-- ══════════════════ 4. ARQUITETURA ══════════════════ -->
+    <section class="panel doc" data-panel="architecture" role="tabpanel">
+      <p class="eyebrow">Arquitetura</p>
+      <h2>Como funciona por dentro</h2>
+      <p class="lede">
+        Duas metades com um contrato estreito entre elas: um servidor Express que só sabe ler e gravar
+        arquivos, e um front-end de módulos ES que só fala com ele por <code>fetch</code> em JSON.
+      </p>
+
+      <h3 id="ar-fluxo">O caminho de um dado</h3>
+      <div class="figure">
+        <svg viewBox="0 0 830 230" role="img" aria-label="Fluxo: o canvas Konva envia mutações ao store, que grava pela api.js no Express; o Express escreve os JSON no disco e, na exportação, publica o contrato no Cloud Storage">
+          <defs>
+            <marker id="ah" markerWidth="9" markerHeight="9" refX="7.5" refY="3.6" orient="auto">
+              <path d="M0,0 L8,3.6 L0,7.2 z" fill="currentColor"></path>
+            </marker>
+          </defs>
+          <g fill="none" stroke="currentColor" color="var(--border-hard)" stroke-width="1.4" marker-end="url(#ah)">
+            <path d="M176,59 L224,59"></path>
+            <path d="M386,59 L434,59"></path>
+            <path d="M596,59 L644,59"></path>
+            <path d="M725,92 L725,144"></path>
+            <path d="M668,92 L566,142"></path>
+          </g>
+
+          <g>
+            <rect x="20" y="30" width="150" height="58" rx="10" fill="var(--surface)" stroke="var(--border-hard)" stroke-width="1.2"></rect>
+            <text x="95" y="54" text-anchor="middle" font-family="Roboto, sans-serif" font-size="13" font-weight="500" fill="var(--text)">Canvas (Konva)</text>
+            <text x="95" y="72" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="10" fill="var(--text-muted)">stage.js · nodes.js</text>
+          </g>
+          <g>
+            <rect x="230" y="30" width="150" height="58" rx="10" fill="var(--surface)" stroke="var(--blue)" stroke-width="1.6"></rect>
+            <text x="305" y="54" text-anchor="middle" font-family="Roboto, sans-serif" font-size="13" font-weight="500" fill="var(--text)">store.js</text>
+            <text x="305" y="72" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="10" fill="var(--text-muted)">commit · undo</text>
+          </g>
+          <g>
+            <rect x="440" y="30" width="150" height="58" rx="10" fill="var(--surface)" stroke="var(--border-hard)" stroke-width="1.2"></rect>
+            <text x="515" y="54" text-anchor="middle" font-family="Roboto, sans-serif" font-size="13" font-weight="500" fill="var(--text)">api.js</text>
+            <text x="515" y="72" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="10" fill="var(--text-muted)">fetch / JSON</text>
+          </g>
+          <g>
+            <rect x="650" y="30" width="150" height="58" rx="10" fill="var(--surface)" stroke="var(--border-hard)" stroke-width="1.2"></rect>
+            <text x="725" y="54" text-anchor="middle" font-family="Roboto, sans-serif" font-size="13" font-weight="500" fill="var(--text)">Express</text>
+            <text x="725" y="72" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="10" fill="var(--text-muted)">routes/ + lib/</text>
+          </g>
+
+          <text x="200" y="50" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="9.5" fill="var(--text-faint)">commit</text>
+          <text x="410" y="44" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="9.5" fill="var(--text-faint)">debounce</text>
+          <text x="410" y="55" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="9.5" fill="var(--text-faint)">700ms</text>
+          <text x="620" y="50" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="9.5" fill="var(--text-faint)">PUT</text>
+
+          <g>
+            <rect x="650" y="148" width="150" height="58" rx="10" fill="var(--surface-alt)" stroke="var(--border-hard)" stroke-width="1.2"></rect>
+            <text x="725" y="172" text-anchor="middle" font-family="Roboto, sans-serif" font-size="12.5" font-weight="500" fill="var(--text)">papyrus/*.json</text>
+            <text x="725" y="190" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="10" fill="var(--text-muted)">disco, legível</text>
+          </g>
+          <g>
+            <rect x="410" y="148" width="156" height="58" rx="10" fill="var(--surface)" stroke="var(--green)" stroke-width="1.4"></rect>
+            <text x="488" y="172" text-anchor="middle" font-family="Roboto, sans-serif" font-size="12.5" font-weight="500" fill="var(--text)">Cloud Storage</text>
+            <text x="488" y="190" text-anchor="middle" font-family="Roboto Mono, monospace" font-size="10" fill="var(--text-muted)">gs://bucket/…json</text>
+          </g>
+          <text x="742" y="124" font-family="Roboto Mono, monospace" font-size="9.5" fill="var(--text-faint)">auto-save</text>
+          <text x="600" y="124" text-anchor="end" font-family="Roboto Mono, monospace" font-size="9.5" fill="var(--text-faint)">Exportar</text>
+        </svg>
+        <p class="figure__cap">
+          Toda alteração no canvas passa por <code>commit()</code>, que empilha o snapshot de undo e
+          agenda o auto-save. O disco é a fonte da verdade; o bucket recebe só o contrato consolidado.
+        </p>
+      </div>
+
+      <h3 id="ar-server">O servidor</h3>
+      <p>
+        <code>server/index.js</code> monta quatro coisas: os estáticos de <code>public/</code>, o Konva
+        servido do <code>node_modules</code> (para funcionar offline), o diretório
+        <code>papyrus/</code> exposto em <code>/papyrus</code> para as imagens do canvas, e os três
+        routers da API. Fecha com um handler de erro que traduz qualquer exceção em
+        <code>{ error }</code> usando <code>err.status</code>. É por isso que lançar um erro com
+        <code>status</code> em qualquer <code>lib/</code> chega na interface como um toast legível.
+      </p>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Camada</th><th>Responsabilidade</th><th>Não faz</th></tr></thead>
+          <tbody>
+            <tr><td class="mono">routes/</td><td>Ler o request, chamar a lib, responder.</td><td>Nenhuma regra de negócio própria.</td></tr>
+            <tr><td class="mono">lib/</td><td>Regras: caminhos, formato de arquivo, nomes, cores, GCS.</td><td>Não conhece Express nem <code>req</code>/<code>res</code>.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 id="ar-seguranca">A regra de segurança do formato</h3>
+      <p>
+        Um arquivo só é renderizado se a raiz do JSON contiver <code>"json-type": "papyrus"</code>.
+        Todo o resto é ignorado. <code>.json</code> sem a assinatura aparece esmaecido na barra lateral,
+        marcado como ignorado, e não abre; na importação é recusado com o motivo.
+      </p>
+      <p>
+        A segunda barreira é de caminho: <code>resolveInPapyrus()</code> é o único lugar que converte o
+        caminho relativo da API em caminho absoluto, e ele rejeita qualquer resultado que caia fora da
+        raiz. A API nunca devolve caminho absoluto nem expõe a estrutura do host — o navegador de
+        diretórios do sistema operacional foi removido de propósito, para a ferramenta poder rodar em
+        servidor compartilhado.
+      </p>
+
+      <h3 id="ar-front">O front-end em quatro camadas</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Camada</th><th>Arquivos</th><th>Papel</th></tr></thead>
+          <tbody>
+            <tr><td>Estado</td><td class="mono">store.js · models.js</td><td>Documento aberto, histórico, auto-save, fábricas de elemento.</td></tr>
+            <tr><td>Canvas</td><td class="mono">canvas/*.js</td><td>Palco Konva, geometria, desenho, clipboard.</td></tr>
+            <tr><td>Painéis</td><td class="mono">panels/*.js</td><td>Barra lateral, inspetor, abas, exportadores.</td></tr>
+            <tr><td>Qualidade</td><td class="mono">quality/*.js</td><td>Validador de governança e geradores de código.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <p>
+        A comunicação entre camadas é um pub/sub minúsculo no <code>store</code>:
+        <code>on('doc')</code>, <code>on('selection')</code>, <code>on('tree')</code>,
+        <code>on('history')</code>. Nenhum painel importa outro painel.
+      </p>
+
+      <h3 id="ar-historico">Histórico e auto-save</h3>
+      <p>
+        <code>commit()</code> é o único caminho de mutação. Ele empilha um snapshot inteiro do documento
+        (não comandos invertidos), aplica a mutação em uma cópia, avisa os assinantes e agenda a
+        gravação com 700ms de debounce. O limite é de 80 passos.
+      </p>
+      <p>
+        Snapshot inteiro é mais caro do que comando invertido, e a escolha é consciente: uma página
+        típica tem dezenas de elementos, não milhares, e o modelo de comandos é bem mais fácil de
+        quebrar. Trocar de página, exportar ou apertar <kbd>Ctrl</kbd>+<kbd>S</kbd> chama
+        <code>flushSave()</code>, que cancela o debounce e grava na hora.
+      </p>
+    </section>
+
+    <!-- ══════════════════ 5. MAPA DO CÓDIGO ══════════════════ -->
+    <section class="panel doc" data-panel="files" role="tabpanel">
+      <p class="eyebrow">Mapa do código</p>
+      <h2>Arquivo por arquivo, e por que cada um existe</h2>
+      <p class="lede">
+        Os 32 arquivos do projeto, o que cada um resolve e as funções que valem conhecer. Filtre por
+        camada ou busque por nome de arquivo, função ou conceito.
+      </p>
+
+      <div class="filterbar">
+        <input class="search" id="file-search" type="search" placeholder="Buscar arquivo, função ou conceito…" aria-label="Buscar no mapa do código">
+        <div class="pills" id="file-pills"></div>
+      </div>
+      <p class="hits" id="file-hits"></p>
+      <div class="files" id="file-list"></div>
+    </section>
+
+    <!-- ══════════════════ 6. API ══════════════════ -->
+    <section class="panel doc" data-panel="api" role="tabpanel">
+      <p class="eyebrow">Referência da API</p>
+      <h2>Endpoints do back-end</h2>
+      <p class="lede">
+        Tudo sob <code>/api</code>, tudo JSON. Todo caminho recebido é relativo à raiz do papyrus e
+        rejeitado se escapar dela.
+      </p>
+
+      <h3 id="ap-arvore">Árvore, pastas e páginas</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Método</th><th class="mono">Rota</th><th>Corpo / query</th><th>Devolve</th></tr></thead>
+          <tbody>
+            <tr><td><span class="chip chip--get">GET</span></td><td class="mono">/api/tree</td><td>—</td><td>Árvore completa, com <code>invalid</code> e <code>eventCount</code> por página.</td></tr>
+            <tr><td><span class="chip chip--post">POST</span></td><td class="mono">/api/folders</td><td class="mono">{ parent, name, color? }</td><td><code>201</code> com o caminho criado.</td></tr>
+            <tr><td><span class="chip chip--put">PUT</span></td><td class="mono">/api/folders/color</td><td class="mono">{ path, color }</td><td>Cor vazia volta ao padrão.</td></tr>
+            <tr><td><span class="chip chip--post">POST</span></td><td class="mono">/api/pages</td><td class="mono">{ parent, name }</td><td><code>201</code> com o documento vazio já assinado.</td></tr>
+            <tr><td><span class="chip chip--get">GET</span></td><td class="mono">/api/page</td><td class="mono">?path=</td><td>Documento, ou <code>422</code> se faltar a assinatura.</td></tr>
+            <tr><td><span class="chip chip--put">PUT</span></td><td class="mono">/api/page</td><td class="mono">{ path, doc }</td><td>Auto-save. Só aceita <code>.json</code>.</td></tr>
+            <tr><td><span class="chip chip--patch">PATCH</span></td><td class="mono">/api/entry</td><td class="mono">{ path, name }</td><td>Renomeia pasta ou página.</td></tr>
+            <tr><td><span class="chip chip--del">DELETE</span></td><td class="mono">/api/entry</td><td class="mono">?path=</td><td>Exclui. Pasta é recursivo.</td></tr>
+            <tr><td><span class="chip chip--post">POST</span></td><td class="mono">/api/entry/move</td><td class="mono">{ path, destination }</td><td>Move. Recusa mover pasta para dentro dela mesma.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 id="ap-sistema">Sistema, dicionário e export</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Método</th><th class="mono">Rota</th><th>O que faz</th></tr></thead>
+          <tbody>
+            <tr><td><span class="chip chip--post">POST</span></td><td class="mono">/api/assets</td><td>Recebe <code>dataUrl</code>, grava em <code>_assets/&lt;data&gt;/</code>, devolve a URL. Máximo 25 MB.</td></tr>
+            <tr><td><span class="chip chip--get">GET</span></td><td class="mono">/api/templates</td><td>Grupos de parâmetros salvos.</td></tr>
+            <tr><td><span class="chip chip--put">PUT</span></td><td class="mono">/api/templates</td><td>Grava os grupos.</td></tr>
+            <tr><td><span class="chip chip--get">GET</span></td><td class="mono">/api/dictionary</td><td>Consolida eventos, parâmetros, conflitos de tipo e colisões de <code>event_id</code>.</td></tr>
+            <tr><td><span class="chip chip--post">POST</span></td><td class="mono">/api/export/events</td><td>Gera o contrato e sobe para o bucket.</td></tr>
+            <tr><td><span class="chip chip--get">GET</span></td><td class="mono">/api/gcs/status</td><td>Diagnóstico que habilita, ou explica, o botão Exportar.</td></tr>
+            <tr><td><span class="chip chip--get">GET</span></td><td class="mono">/api/settings/gcs</td><td>Configuração atual. A chave privada vira só <code>hasCredential</code>.</td></tr>
+            <tr><td><span class="chip chip--put">PUT</span></td><td class="mono">/api/settings/gcs</td><td>Salva bucket, prefixo e credencial colada.</td></tr>
+            <tr><td><span class="chip chip--post">POST</span></td><td class="mono">/api/settings/gcs/test</td><td>Testa lib, credencial e acesso ao bucket sem salvar.</td></tr>
+            <tr><td><span class="chip chip--post">POST</span></td><td class="mono">/api/import/inline</td><td>Importa arquivos enviados pelo navegador, com relatório de ignorados.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3 id="ap-erros">Códigos de erro</h3>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th class="num">Código</th><th>Quando</th></tr></thead>
+          <tbody>
+            <tr><td class="mono num">400</td><td>Caminho fora da raiz, nome inválido, dataUrl malformada, bucket ausente.</td></tr>
+            <tr><td class="mono num">404</td><td>Item não encontrado na exclusão.</td></tr>
+            <tr><td class="mono num">409</td><td>Nome já existe no workspace, ou <code>event_id</code> ausente/repetido no export.</td></tr>
+            <tr><td class="mono num">413</td><td>Imagem acima de 25 MB.</td></tr>
+            <tr><td class="mono num">415</td><td>Formato de imagem não suportado.</td></tr>
+            <tr><td class="mono num">422</td><td>JSON sem <code>"json-type": "papyrus"</code> na raiz.</td></tr>
+            <tr><td class="mono num">501</td><td><code>@google-cloud/storage</code> não instalado.</td></tr>
+          </tbody>
+        </table>
+      </div>
+      <div class="note">
+        <div class="note__bar"></div>
+        <div class="note__body">
+          <span class="note__label">O 409 do export</span>
+          <p>
+            O export é recusado quando algum <code>event_id</code> falta ou se repete. A interface já
+            checa isso antes de habilitar o botão, mas a garantia mora no servidor: o arquivo no bucket
+            é lido como verdade pelo time de engenharia, e um id repetido faz dois eventos diferentes
+            chegarem como o mesmo no GA4. A resposta traz <code>problems</code> com a página, o evento e
+            o tipo da falha.
+          </p>
+        </div>
+      </div>
+
+      <h3 id="ap-doc">Anatomia de um documento</h3>
+      <div class="code">
+        <div class="code__head"><span class="code__name">papyrus/queroabacate.com/home/home.json</span><button class="copy" type="button">copiar</button></div>
+<pre>{
+  <span class="tok-s">"json-type"</span>: <span class="tok-s">"papyrus"</span>,        <span class="tok-c">// sem isto, o arquivo não abre</span>
+  <span class="tok-s">"schemaVersion"</span>: <span class="tok-n">1</span>,
+  <span class="tok-s">"id"</span>: <span class="tok-s">"uuid"</span>,
+  <span class="tok-s">"name"</span>: <span class="tok-s">"PDP"</span>,
+  <span class="tok-s">"viewport"</span>: { <span class="tok-s">"x"</span>: <span class="tok-n">0</span>, <span class="tok-s">"y"</span>: <span class="tok-n">0</span>, <span class="tok-s">"scale"</span>: <span class="tok-n">1</span> },
+  <span class="tok-s">"elements"</span>: [
+    {
+      <span class="tok-s">"id"</span>: <span class="tok-s">"evt_x1y2"</span>,
+      <span class="tok-s">"type"</span>: <span class="tok-s">"event"</span>,
+      <span class="tok-s">"x"</span>: <span class="tok-n">620</span>, <span class="tok-s">"y"</span>: <span class="tok-n">300</span>, <span class="tok-s">"width"</span>: <span class="tok-n">320</span>,   <span class="tok-c">// geometria na raiz</span>
+      <span class="tok-s">"data"</span>: {                          <span class="tok-c">// regra de negócio em data</span>
+        <span class="tok-s">"name"</span>: <span class="tok-s">"view_item"</span>,
+        <span class="tok-s">"eventType"</span>: <span class="tok-s">"ecommerce"</span>,
+        <span class="tok-s">"platform"</span>: [<span class="tok-s">"web"</span>, <span class="tok-s">"app"</span>],
+        <span class="tok-s">"trigger"</span>: <span class="tok-s">"Carregamento da PDP"</span>,
+        <span class="tok-s">"squad"</span>: <span class="tok-s">"Growth"</span>, <span class="tok-s">"owner"</span>: <span class="tok-s">"ana@empresa"</span>,
+        <span class="tok-s">"eventParams"</span>: [
+          { <span class="tok-s">"id"</span>: <span class="tok-s">"p1"</span>, <span class="tok-s">"name"</span>: <span class="tok-s">"event_id"</span>, <span class="tok-s">"type"</span>: <span class="tok-s">"string"</span>,
+            <span class="tok-s">"required"</span>: <span class="tok-k">true</span>, <span class="tok-s">"example"</span>: <span class="tok-s">"d102111109-p1757203200-6k3f9zq"</span> }
+        ],
+        <span class="tok-s">"userParams"</span>: [], <span class="tok-s">"itemParams"</span>: []
+      }
+    }
+  ]
+}</pre>
+      </div>
+      <p>
+        A separação é intencional: geometria na raiz, regra de negócio em <code>data</code>, e só o card
+        de evento tem <code>data</code>. O exportador lê exclusivamente <code>data</code>, e é por isso
+        que mover um card no canvas nunca altera o contrato.
+      </p>
+    </section>
+
+    <!-- ══════════════════ 7. DECISÕES ══════════════════ -->
+    <section class="panel doc" data-panel="decisions" role="tabpanel">
+      <p class="eyebrow">Decisões técnicas</p>
+      <h2>Por que o código é assim</h2>
+      <p class="lede">
+        Os trechos que parecem estranhos até você saber o que eles evitam. Cada um tem uma falha real
+        por trás — abra para ver o código e o motivo.
+      </p>
+
+      <h3 id="de-arquitetura">Arquitetura e formato</h3>
+
+      <details class="why">
+        <summary><span class="why__caret">▸</span> Express local em vez de Electron<span class="why__file">server/index.js</span></summary>
+        <div class="why__body">
+          <p>
+            A ferramenta precisa de acesso real ao sistema de arquivos: criar pastas, ler e gravar JSON.
+            Um front-end puro no navegador não teria isso. Entre Electron e um servidor Node local, o
+            servidor venceu por três motivos — sobe em cerca de um segundo sem build step, roda em
+            qualquer máquina com Node, e permite abrir o mapa em várias abas, em dois monitores, ou
+            compartilhar na rede interna do time.
+          </p>
+          <p>
+            O front-end e a API já estão desacoplados, então nada impede empacotar como Electron depois.
+          </p>
+        </div>
+      </details>
+
+      <details class="why">
+        <summary><span class="why__caret">▸</span> A assinatura <code>"json-type": "papyrus"</code><span class="why__file">lib/papyrus.js</span></summary>
+        <div class="why__body">
+          <p>
+            A pasta de trabalho é apontável pelo usuário via <code>PAPYRUS_DIR</code> e pode ser um
+            diretório cheio de outros arquivos. Renderizar qualquer <code>.json</code> que aparecesse
+            seria uma porta aberta para tratar dado de outro sistema como documento de canvas.
+          </p>
+          <p>
+            A verificação é uma linha, e é a fundação de tudo: <code>readDocIfValid()</code> devolve
+            <code>null</code> em qualquer falha — arquivo ilegível, JSON quebrado ou assinatura ausente —
+            e nunca lança. Quem chama decide o que fazer com o <code>null</code>.
+          </p>
+          <div class="code">
+            <div class="code__head"><span class="code__name">server/lib/papyrus.js</span><button class="copy" type="button">copiar</button></div>
+<pre><span class="tok-k">export function</span> <span class="tok-n">isPapyrusDoc</span>(doc) {
+  <span class="tok-k">return</span> Boolean(doc) &amp;&amp; <span class="tok-k">typeof</span> doc === <span class="tok-s">'object'</span> &amp;&amp; doc[<span class="tok-s">'json-type'</span>] === PAPYRUS_TYPE;
+}</pre>
+          </div>
+        </div>
+      </details>
+
+      <details class="why">
+        <summary><span class="why__caret">▸</span> Imagens fora do JSON<span class="why__file">routes/assets.js</span></summary>
+        <div class="why__body">
+          <p>
+            Um print de tela em base64 embutido no documento transformaria um arquivo de 8 KB em um de
+            3 MB, ilegível para humanos e péssimo em diff do Git. As imagens vão para
+            <code>_assets/&lt;data&gt;/&lt;uuid&gt;.&lt;ext&gt;</code> e o documento guarda só a URL.
+          </p>
+          <p>
+            O agrupamento por dia não é estética: é o que torna possível uma limpeza manual futura sem
+            precisar cruzar cada arquivo com cada documento.
+          </p>
+        </div>
+      </details>
+
+      <details class="why">
+        <summary><span class="why__caret">▸</span> Cor de pasta fora das pastas do usuário<span class="why__file">lib/folder-colors.js</span></summary>
+        <div class="why__body">
+          <p>
+            As cores vivem em <code>_system/folder-colors.json</code>, indexadas pelo caminho da pasta.
+            Cor é assunto de interface, não conteúdo do mapa de coleta — deixá-la ali mantém os JSONs de
+            página limpos e fáceis de revisar em pull request.
+          </p>
+          <p>
+            O preço é <code>moveFolderColors()</code>: renomear ou arrastar uma pasta muda o caminho
+            dela <b>e o de todas as subpastas</b>, então as chaves precisam ser reapontadas em conjunto.
+            Sem isso, a cor se perderia a cada arrastar e soltar.
+          </p>
+        </div>
+      </details>
+
+      <h3 id="de-nomes">Nomes e identidade</h3>
+
+      <details class="why">
+        <summary><span class="why__caret">▸</span> Por que <code>uniquePath</code> foi removido<span class="why__file">lib/paths.js</span></summary>
+        <div class="why__body">
+          <p>
+            A função resolvia colisão de nome acrescentando <code>(2)</code> ao final. Parecia gentil, e
+            era exatamente a forma mais fácil de acabar com duas páginas quase idênticas no workspace
+            sem ninguém perceber — <code>home</code> e <code>home (2)</code>, cada uma com metade dos
+            eventos.
+          </p>
+          <p>
+            Hoje colisão vira erro <code>409</code> com o nome e o lugar do que já existe. O comentário
+            que ficou no lugar da função existe para ninguém reintroduzi-la por conveniência.
+          </p>
+        </div>
+      </details>
+
+      <details class="why">
+        <summary><span class="why__caret">▸</span> Unicidade global, e não por pasta<span class="why__file">lib/names.js</span></summary>
+        <div class="why__body">
+          <p>
+            O JSON exportado usa o nome da página como chave raiz, e chave de objeto não se repete. Ou o
+            arquivo carrega o caminho completo de cada página, ou o nome é único de verdade. A escolha
+            foi a segunda: o nome vira identificador, e a colisão morre na criação, quando ainda há
+            alguém na tela para resolver.
+          </p>
+          <p>
+            A comparação ignora a caixa da letra porque o disco do Windows já trata <code>Frutas</code> e
+            <code>frutas</code> como o mesmo arquivo, e duas páginas separadas só pela caixa seriam
+            indistinguíveis na árvore lateral.
+          </p>
+          <div class="code">
+            <div class="code__head"><span class="code__name">server/lib/names.js</span><button class="copy" type="button">copiar</button></div>
+<pre><span class="tok-k">export function</span> <span class="tok-n">findConflict</span>(taken, name, ignorePath = <span class="tok-k">null</span>) {
+  <span class="tok-k">const</span> hit = taken.get(normalizeName(name));
+  <span class="tok-k">if</span> (!hit) <span class="tok-k">return</span> <span class="tok-k">null</span>;
+  <span class="tok-c">// O próprio item não conta: trocar "abacate" por "Abacate"</span>
+  <span class="tok-c">// precisa continuar sendo uma renomeação válida.</span>
+  <span class="tok-k">if</span> (ignorePath &amp;&amp; hit.path === toApiPath(ignorePath)) <span class="tok-k">return</span> <span class="tok-k">null</span>;
+  <span class="tok-k">return</span> hit;
+}</pre>
+          </div>
+        </div>
+      </details>
+
+      <details class="why">
+        <summary><span class="why__caret">▸</span> A regra existe duas vezes, de propósito<span class="why__file">names.js + sidebar.js</span></summary>
+        <div class="why__body">
+          <p>
+            O servidor é a autoridade e recusa de novo tudo o que passar pela interface. A cópia da
+            regra na barra lateral existe só pelo aviso: sem ela, o modal fecharia, o toast de erro
+            apareceria e o nome digitado se perderia — que é justamente o texto que a pessoa precisa ter
+            em mãos para corrigir.
+          </p>
+          <p>
+            As duas <code>normalizeName</code> carregam um comentário apontando uma para a outra.
+            Divergirem faria a interface liberar um nome que o servidor recusa em seguida.
+          </p>
+        </div>
+      </details>
+
+      <details class="why">
+        <summary><span class="why__caret">▸</span> O <code>padStart(3, '0')</code> do <code>event_id</code><span class="why__file">public/js/models.js</span></summary>
+        <div class="why__body">
+          <p>
+            O prefixo do id é o código ASCII de cada letra da pasta. Sem preencher com zero à esquerda,
+            <code>"AB"</code> (65, 66) viraria <code>6566</code> — e uma pasta literalmente chamada
+            <code>6566</code> produziria a mesma string. O prefixo deixaria de identificar a pasta.
+          </p>
+          <p>
+            O <code>NFD</code> antes do filtro separa o acento da letra, então <code>Ação</code> vira
+            <code>Acao</code> em vez de perder caracteres inteiros.
+          </p>
+          <div class="code">
+            <div class="code__head"><span class="code__name">public/js/models.js</span><button class="copy" type="button">copiar</button></div>
+<pre><span class="tok-k">const</span> ascii = [
+  ...String(folderName || <span class="tok-s">'papyrus'</span>)
+    .normalize(<span class="tok-s">'NFD'</span>)
+    .replace(<span class="tok-s">/[^\x20-\x7E]/g</span>, <span class="tok-s">''</span>),
+]
+  .map((char) =&gt; String(char.charCodeAt(<span class="tok-n">0</span>)).padStart(<span class="tok-n">3</span>, <span class="tok-s">'0'</span>))
+  .join(<span class="tok-s">''</span>);</pre>
+          </div>
+        </div>
+      </details>
+
+      <details class="why">
+        <summary><span class="why__caret">▸</span> O <code>Set</code> em <code>renewEventIds</code><span class="why__file">public/js/models.js</span></summary>
+        <div class="why__body">
+          <p>
+            Cópia de card é cópia de tudo, menos da chave que identifica a coleta. Mas duplicar dez cards
+            de uma vez acontece todo no mesmo segundo, e o timestamp do id é idêntico para todos — aí o
+            sufixo aleatório de seis caracteres é a única coisa separando um id do outro.
+          </p>
+          <p>
+            O <code>Set</code> garante que nenhum id se repita dentro do próprio lote, sorteando de novo
+            quando cai um repetido.
+          </p>
+        </div>
+      </details>
+
+      <h3 id="de-canvas">Canvas e desempenho</h3>
+
+      <details class="why">
+        <summary><span class="why__caret">▸</span> O fingerprint do render incremental<span class="why__file">canvas/stage.js</span></summary>
+        <div class="why__body">
+          <p>
+            Reconstruir o palco inteiro a cada tecla digitada no inspetor era a maior fonte de
+            travamento em mapas grandes. Cada nó Konva guarda o JSON do elemento que o gerou; se o
+            fingerprint não mudou, o nó é reaproveitado como está.
+          </p>
+          <p>
+            O detalhe que não é óbvio: imagem tem estado <b>fora</b> do elemento. Com o mesmo objeto, o
+            visual muda quando o arquivo termina de carregar e o placeholder vira bitmap — por isso o
+            estado do carregamento entra no hash.
+          </p>
+          <div class="code">
+            <div class="code__head"><span class="code__name">public/js/canvas/stage.js</span><button class="copy" type="button">copiar</button></div>
+<pre><span class="tok-k">const</span> loadedSuffix = el.type === <span class="tok-s">'image'</span> &amp;&amp; imageCache.has(el.url) ? <span class="tok-s">'|loaded'</span> : <span class="tok-s">''</span>;
+<span class="tok-k">const</span> fp = JSON.stringify(el) + loadedSuffix;
+<span class="tok-k">const</span> cached = nodeCache.get(el.id);
+
+<span class="tok-k">if</span> (cached &amp;&amp; cached.fp === fp) <span class="tok-k">continue</span>; <span class="tok-c">// nó reaproveitado como está</span></pre>
+          </div>
+        </div>
+      </details>
+
+      <details class="why">
+        <summary><span class="why__caret">▸</span> Conectores sempre reconstruídos<span class="why__file">stage.js + geometry.js</span></summary>
+        <div class="why__body">
+          <p>
+            Todo elemento passa pelo diff, menos o conector. Ele depende da posição <b>e da altura
+            medida</b> dos elementos que liga, e a altura de um card de evento só é conhecida depois de
+            desenhado — fica no <code>sizeCache</code>, preenchido no render. São poucos e baratos,
+            então reconstruir sempre custa menos do que rastrear a dependência.
+          </p>
+          <p>
+            Durante um arrasto nada é reconstruído: o Konva move os nós e só as linhas são recalculadas
+            em tempo real, com as posições vivas dos nós, não com as do documento.
+          </p>
+        </div>
+      </details>
+
+      <details class="why">
+        <summary><span class="why__caret">▸</span> A ordem Z realinhada à mão<span class="why__file">canvas/stage.js</span></summary>
+        <div class="why__body">
+          <p>
+            <code>layer.add()</code> de um nó que já é filho do layer é no-op no Konva. Como o diff
+            reaproveita nós antigos, a pilha de desenho deixaria de refletir a ordem do array de
+            elementos. Por isso a ordem é realinhada explicitamente com <code>moveToTop()</code>,
+            elementos primeiro e conectores depois, para as setas ficarem sempre por cima.
+          </p>
+        </div>
+      </details>
+
+      <details class="why">
+        <summary><span class="why__caret">▸</span> Os três cuidados do <code>exportPNG</code><span class="why__file">canvas/stage.js</span></summary>
+        <div class="why__body">
+          <p><b>1.</b> A camada de overlay — transformer, marquee, preview de conector — é escondida, senão vaza para a imagem final.</p>
+          <p><b>2.</b> O fundo vai desenhado como um retângulo de verdade: o <code>toDataURL</code> do Konva não aceita cor de fundo, e sem isso o PNG sairia transparente.</p>
+          <p><b>3.</b> O palco é redimensionado temporariamente para cobrir toda a área exportada. Os canvases das camadas têm o tamanho da viewport visível, e sem esse passo tudo o que estivesse fora da janela sairia cortado.</p>
+        </div>
+      </details>
+
+      <details class="why">
+        <summary><span class="why__caret">▸</span> Curva de Bézier em vez de linha reta<span class="why__file">canvas/geometry.js</span></summary>
+        <div class="why__body">
+          <p>
+            Os pontos de controle saem perpendiculares ao lado ancorado. É o que produz a curva em S: a
+            linha nasce da borda do card e chega suave no destino, em vez de cortar o elemento na
+            diagonal. O par de âncoras é escolhido pela menor distância entre os quatro lados de cada
+            elemento — daí a sensação de conector magnético mesmo depois de arrastar os cards.
+          </p>
+        </div>
+      </details>
+
+      <h3 id="de-estado">Estado e interface</h3>
+
+      <details class="why">
+        <summary><span class="why__caret">▸</span> A janela de 1200ms do undo<span class="why__file">public/js/store.js</span></summary>
+        <div class="why__body">
+          <p>
+            Digitar o nome de um evento gera dezenas de commits, e todos precisam caber em um único
+            passo de <kbd>Ctrl</kbd>+<kbd>Z</kbd>. Commits consecutivos com a mesma
+            <code>coalesceKey</code> dentro da janela não empilham snapshot novo.
+          </p>
+          <p>
+            O <code>lastCommit</code> é zerado depois de um undo. Sem esse reset, um commit agrupado logo
+            em seguida não empilharia snapshot, e o <kbd>Ctrl</kbd>+<kbd>Z</kbd> seguinte não teria para
+            onde voltar.
+          </p>
+        </div>
+      </details>
+
+      <details class="why">
+        <summary><span class="why__caret">▸</span> Snapshot inteiro em vez de comandos invertidos<span class="why__file">public/js/store.js</span></summary>
+        <div class="why__body">
+          <p>
+            Um sistema de comandos invertidos seria mais econômico em memória, e bem mais fácil de
+            quebrar: cada tipo de mutação precisaria da sua inversa correta. Nesta escala a economia não
+            paga — uma página típica tem dezenas de elementos, não milhares — e o limite de 80 passos
+            fecha a conta.
+          </p>
+        </div>
+      </details>
+
+      <details class="why">
+        <summary><span class="why__caret">▸</span> Viewport fora do histórico<span class="why__file">public/js/store.js</span></summary>
+        <div class="why__body">
+          <p>
+            Zoom e pan são gravados no documento, para a página reabrir onde você parou, mas passam por
+            <code>saveViewport()</code> e não por <code>commit()</code>. Se entrassem no histórico,
+            <kbd>Ctrl</kbd>+<kbd>Z</kbd> desfaria um scroll em vez da última edição de verdade.
+          </p>
+        </div>
+      </details>
+
+      <details class="why">
+        <summary><span class="why__caret">▸</span> O <code>selfUpdate</code> do inspetor<span class="why__file">panels/inspector.js</span></summary>
+        <div class="why__body">
+          <p>
+            O painel é HTML reconstruído a cada render. Se uma tecla digitada em um campo disparasse o
+            re-render do próprio painel, o input perderia o foco no meio da palavra.
+          </p>
+          <p>
+            Por isso alteração que nasce no inspetor marca <code>selfUpdate</code> e re-renderiza apenas
+            o canvas. O card no palco acompanha a digitação; o painel fica quieto.
+          </p>
+        </div>
+      </details>
+
+      <details class="why">
+        <summary><span class="why__caret">▸</span> Validação com 250ms de atraso<span class="why__file">public/js/main.js</span></summary>
+        <div class="why__body">
+          <p>
+            O validador percorre todos os cards, todos os parâmetros e todos os conectores da página.
+            Rodar isso a cada tecla disputaria o frame com o canvas. Esperar 250ms depois da última
+            alteração passa despercebido para quem digita e pesa muito menos.
+          </p>
+        </div>
+      </details>
+
+      <details class="why">
+        <summary><span class="why__caret">▸</span> Clipboard assinado<span class="why__file">canvas/clipboard.js</span></summary>
+        <div class="why__body">
+          <p>
+            O que é copiado também vai para a área de transferência do sistema, como JSON com a
+            assinatura <code>papyrus/clipboard</code>. É isso que permite colar elementos de uma página
+            em outra, e até entre abas do navegador.
+          </p>
+          <p>
+            Existe um buffer interno como reserva, porque o navegador pode negar permissão de leitura do
+            clipboard. E o <code>paste</code> tem ordem de prioridade: imagem primeiro, depois JSON
+            assinado, e por último texto solto — que vira nota adesiva, útil ao trazer requisito de fora.
+          </p>
+        </div>
+      </details>
+
+      <h3 id="de-integracao">Integração e segurança</h3>
+
+      <details class="why">
+        <summary><span class="why__caret">▸</span> Import dinâmico do <code>@google-cloud/storage</code><span class="why__file">server/lib/gcs.js</span></summary>
+        <div class="why__body">
+          <p>
+            O pacote não vem instalado por padrão, para a ferramenta continuar leve e funcionando
+            offline. O import acontece dentro da função, na hora do upload. Sem o pacote, a API responde
+            <code>501</code> com o comando de instalação, em vez de o servidor sequer subir.
+          </p>
+        </div>
+      </details>
+
+      <details class="why">
+        <summary><span class="why__caret">▸</span> A credencial nunca volta para o navegador<span class="why__file">gcs.js + panels/settings.js</span></summary>
+        <div class="why__body">
+          <p>
+            A chave privada é validada, gravada em arquivo próprio dentro de <code>_system/</code> e
+            referenciada por caminho — o <code>gcs.json</code> nunca carrega a chave. A API de
+            configuração devolve apenas o booleano <code>hasCredential</code>.
+          </p>
+          <p>
+            A aba Configurações também não mostra nada sobre o servidor: nem caminho de pasta, nem
+            sistema operacional, nem versão do runtime. O teste de conexão aceita a chave colada e ainda
+            não salva, para dar para validar antes de gravar em disco.
+          </p>
+        </div>
+      </details>
+
+      <details class="why">
+        <summary><span class="why__caret">▸</span> O navegador de diretórios foi removido<span class="why__file">routes/system.js</span></summary>
+        <div class="why__body">
+          <p>
+            A importação acontece só por upload pelo navegador. O antigo navegador de pastas do sistema
+            operacional e a importação por caminho absoluto foram retirados de propósito: com a
+            ferramenta rodando em servidor compartilhado, os dois exporiam a estrutura de pastas do host
+            para qualquer pessoa com acesso à interface.
+          </p>
+        </div>
+      </details>
+
+      <details class="why">
+        <summary><span class="why__caret">▸</span> Export só para o bucket, sem download<span class="why__file">panels/exporters.js</span></summary>
+        <div class="why__body">
+          <p>
+            O contrato de coleta precisa de um endereço só, compartilhado e versionado. Um arquivo
+            baixado na máquina de quem exportou vira cópia divergente no dia seguinte. Gravar em caminho
+            de disco escolhido pelo usuário também não é opção, porque exporia o filesystem do servidor.
+          </p>
+          <p>
+            Pelo mesmo raciocínio, o escopo é sempre o workspace inteiro: exportar página isolada
+            produzia contratos parciais circulando em paralelo, cada um dizendo uma coisa.
+          </p>
+        </div>
+      </details>
+
+      <details class="why">
+        <summary><span class="why__caret">▸</span> Erro bloqueia o export, aviso não<span class="why__file">panels/exporters.js</span></summary>
+        <div class="why__body">
+          <p>
+            O auditor lê todas as páginas do disco e valida uma a uma antes de liberar o botão, e fecha
+            com a checagem que nenhuma página consegue fazer sozinha: <code>event_id</code> repetido
+            entre páginas diferentes.
+          </p>
+          <p>
+            Só erro bloqueia. Aviso é coisa de mapa em andamento — sem squad definido, gatilho ainda não
+            descrito — e travar por isso deixaria o export inalcançável justamente enquanto o trabalho
+            está sendo feito.
+          </p>
+        </div>
+      </details>
+
+      <div class="footer">
+        Papyrus v2.5.0 · documentação gerada a partir da leitura do código-fonte em
+        <code>server/</code> e <code>public/</code>.
+      </div>
+    </section>
+
+  </div>
+
+  <aside class="toc" id="toc" aria-label="Nesta página">
+    <div class="toc__title">Nesta página</div>
+    <div class="toc__list" id="toc-list"></div>
+  </aside>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ── abas ───────────────────────────────────────────────── */
+  var TABS = [
+    { id: 'overview',     label: 'Visão geral' },
+    { id: 'setup',        label: 'Instalação' },
+    { id: 'usage',        label: 'Como usar' },
+    { id: 'architecture', label: 'Arquitetura' },
+    { id: 'files',        label: 'Mapa do código' },
+    { id: 'api',          label: 'API' },
+    { id: 'decisions',    label: 'Decisões' }
+  ];
+
+  var tabbar = document.getElementById('tabbar');
+  var panels = Array.prototype.slice.call(document.querySelectorAll('.panel'));
+
+  TABS.forEach(function (t, i) {
+    var b = document.createElement('button');
+    b.className = 'tab';
+    b.type = 'button';
+    b.setAttribute('role', 'tab');
+    b.setAttribute('aria-selected', 'false');
+    b.dataset.tab = t.id;
+    b.innerHTML = '<span class="tab__idx">' + (i + 1) + '</span>' + t.label;
+    b.addEventListener('click', function () { select(t.id, true); });
+    tabbar.appendChild(b);
+  });
+
+  function select(id, push) {
+    var found = TABS.some(function (t) { return t.id === id; });
+    if (!found) id = TABS[0].id;
+
+    panels.forEach(function (p) { p.classList.toggle('is-active', p.dataset.panel === id); });
+    Array.prototype.forEach.call(tabbar.children, function (b) {
+      b.setAttribute('aria-selected', String(b.dataset.tab === id));
+    });
+    buildToc(id);
+    if (push && location.hash.slice(1) !== id) history.replaceState(null, '', '#' + id);
+    window.scrollTo({ top: 0, behavior: push ? 'smooth' : 'auto' });
+  }
+
+  /* ── índice lateral com scroll-spy ──────────────────────── */
+  var tocList = document.getElementById('toc-list');
+  var spy = [];
+
+  function buildToc(id) {
+    var panel = document.querySelector('.panel[data-panel="' + id + '"]');
+    tocList.innerHTML = '';
+    spy = [];
+    if (!panel) return;
+
+    Array.prototype.forEach.call(panel.querySelectorAll('h3[id]'), function (h) {
+      var a = document.createElement('a');
+      a.className = 'toc__link';
+      a.href = '#' + h.id;
+      a.textContent = h.textContent.trim();
+      a.addEventListener('click', function (e) {
+        e.preventDefault();
+        h.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      });
+      tocList.appendChild(a);
+      spy.push({ h: h, a: a });
+    });
+    highlight();
+  }
+
+  function highlight() {
+    if (!spy.length) return;
+    var line = 150;
+    var current = spy[0];
+    spy.forEach(function (s) {
+      if (s.h.getBoundingClientRect().top <= line) current = s;
+    });
+    spy.forEach(function (s) { s.a.classList.toggle('is-current', s === current); });
+  }
+
+  var ticking = false;
+  window.addEventListener('scroll', function () {
+    if (ticking) return;
+    ticking = true;
+    requestAnimationFrame(function () { ticking = false; highlight(); });
+  }, { passive: true });
+
+  /* ── tema ───────────────────────────────────────────────── */
+  var themeBtn = document.getElementById('theme-btn');
+  try {
+    var saved = localStorage.getItem('papyrus.docs.theme');
+    if (saved) document.documentElement.setAttribute('data-theme', saved);
+  } catch (e) { /* storage bloqueado */ }
+
+  themeBtn.addEventListener('click', function () {
+    var isDark = document.documentElement.getAttribute('data-theme') === 'dark'
+      || (!document.documentElement.hasAttribute('data-theme')
+          && window.matchMedia('(prefers-color-scheme: dark)').matches);
+    var next = isDark ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem('papyrus.docs.theme', next); } catch (e) { /* ignora */ }
+  });
+
+  /* ── copiar código ──────────────────────────────────────── */
+  document.addEventListener('click', function (e) {
+    var btn = e.target.closest ? e.target.closest('.copy') : null;
+    if (!btn) return;
+    var pre = btn.closest('.code').querySelector('pre');
+    var text = pre.innerText;
+    var done = function () {
+      var before = btn.textContent;
+      btn.textContent = 'copiado';
+      btn.classList.add('is-done');
+      setTimeout(function () { btn.textContent = before; btn.classList.remove('is-done'); }, 1400);
+    };
+    if (navigator.clipboard) {
+      navigator.clipboard.writeText(text).then(done, fallback);
+    } else { fallback(); }
+
+    function fallback() {
+      var ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.select();
+      try { document.execCommand('copy'); done(); } catch (err) { /* sem clipboard */ }
+      ta.remove();
+    }
+  });
+
+  /* ── mapa do código ─────────────────────────────────────── */
+  var LAYERS = {
+    server:  { label: 'Servidor',  color: 'var(--green)'  },
+    lib:     { label: 'Lib',       color: 'var(--blue)'   },
+    routes:  { label: 'Rotas',     color: 'var(--purple)' },
+    state:   { label: 'Estado',    color: 'var(--yellow)' },
+    canvas:  { label: 'Canvas',    color: 'var(--red)'    },
+    panels:  { label: 'Painéis',   color: 'var(--blue)'   },
+    quality: { label: 'Qualidade', color: 'var(--green)'  },
+    ui:      { label: 'UI',        color: 'var(--purple)' },
+    style:   { label: 'Estilo',    color: 'var(--yellow)' }
+  };
+
+  var FILES = [
+    { p: 'server/index.js', l: 85, g: 'server',
+      w: 'Sobe o Express, serve o front-end estático, o Konva do node_modules e a pasta papyrus, e monta os três routers.',
+      y: 'Trata <b>EADDRINUSE</b> explicitamente: porta ocupada quase sempre é o próprio Papyrus já rodando, e um stack trace do Node não ajudaria ninguém. O handler de erro final converte <b>err.status</b> em resposta JSON, e é o que faz um erro lançado em qualquer lib virar toast legível.',
+      k: ['app.listen', 'ensureBaseStructure', 'error handler'] },
+
+    { p: 'server/lib/paths.js', l: 105, g: 'lib',
+      w: 'Resolução segura de caminhos. Único módulo que transforma caminho relativo da API em caminho absoluto no disco.',
+      y: 'É a barreira contra <b>path traversal</b>: qualquer resultado fora de PAPYRUS_ROOT vira erro 400. Também guarda o comentário explicando por que <b>uniquePath</b> foi removido — ele renomeava colisão para "(2)" em silêncio.',
+      k: ['resolveInPapyrus', 'toRelative', 'sanitizeName', 'ensureBaseStructure'] },
+
+    { p: 'server/lib/papyrus.js', l: 197, g: 'lib',
+      w: 'Regras do formato de arquivo: assinatura, criação de documento vazio, varredura da árvore e extração dos eventos.',
+      y: 'Concentra a regra que sustenta o resto — só renderiza arquivo com <b>"json-type": "papyrus"</b> na raiz. <b>extractEvents</b> é a fronteira entre desenho e contrato: devolve só regra de negócio, sem coordenada, cor ou elemento visual.',
+      k: ['isPapyrusDoc', 'readDocIfValid', 'scanTree', 'collectAllDocs', 'extractEvents'] },
+
+    { p: 'server/lib/names.js', l: 135, g: 'lib',
+      w: 'A regra de nome único no workspace inteiro: páginas, pastas e as duas entre si.',
+      y: 'Existe porque o JSON exportado usa o nome da página como chave raiz, e chave de objeto não se repete. Nada aqui renomeia sozinho: colisão vira erro 409 com o nome e o lugar do que já existe.',
+      k: ['normalizeName', 'collectNames', 'findConflict', 'assertNameAvailable', 'describeConflict'] },
+
+    { p: 'server/lib/gcs.js', l: 284, g: 'lib',
+      w: 'Adapter do Google Cloud Storage: configuração, teste de conexão e upload do contrato.',
+      y: 'A biblioteca oficial entra por <b>import dinâmico</b>, para a ferramenta continuar leve e offline sem ela. A credencial vai para arquivo próprio em _system/ e o gcs.json guarda só o caminho — a chave privada nunca volta para o navegador.',
+      k: ['getGcsConfig', 'saveGcsConfig', 'testGcs', 'uploadToGcs', 'gcsStatus'] },
+
+    { p: 'server/lib/folder-colors.js', l: 93, g: 'lib',
+      w: 'Cor do ícone de cada pasta, indexada pelo caminho, em _system/folder-colors.json.',
+      y: 'Fica fora das pastas do usuário porque cor é assunto de interface, não conteúdo do mapa. O preço é <b>moveFolderColors</b>: renomear uma pasta muda o caminho dela e o de todas as subpastas, e as chaves precisam ser reapontadas juntas.',
+      k: ['readFolderColors', 'setFolderColor', 'moveFolderColors', 'forgetFolderColors'] },
+
+    { p: 'server/routes/tree.js', l: 204, g: 'routes',
+      w: 'CRUD da árvore: criar, ler, gravar, renomear, excluir e mover pastas e páginas.',
+      y: 'É onde a regra de nome único é aplicada na criação e na renomeação. Renomear mantém o campo <b>name</b> do documento em sincronia com o nome do arquivo, senão o export usaria um nome que ninguém vê na árvore.',
+      k: ['POST /folders', 'POST /pages', 'PATCH /entry', 'POST /entry/move'] },
+
+    { p: 'server/routes/system.js', l: 367, g: 'routes',
+      w: 'Grupos de parâmetros, Dicionário Global, exportador, configuração do GCS e importação por upload.',
+      y: 'O export monta o payload e recusa com 409 se algum <b>event_id</b> faltar ou repetir — a interface já checa, mas a garantia precisa morar no servidor. A importação usa o mapa de nomes e devolve os arquivos em conflito no relatório de ignorados, em vez de derrubar o lote.',
+      k: ['GET /dictionary', 'POST /export/events', 'findEventIdProblems', 'POST /import/inline'] },
+
+    { p: 'server/routes/assets.js', l: 60, g: 'routes',
+      w: 'Upload de imagem vinda do Ctrl+V de um print ou do botão de importar.',
+      y: 'Grava em _assets/&lt;data&gt;/&lt;uuid&gt;.&lt;ext&gt; e devolve só a URL. Imagem em base64 dentro do JSON inflaria o documento e destruiria a legibilidade em diff. O agrupamento por dia é o que torna viável uma limpeza manual futura.',
+      k: ['POST /assets', 'MIME_EXT', 'limite de 25 MB'] },
+
+    { p: 'public/index.html', l: 204, g: 'style',
+      w: 'Casca da aplicação: topbar, quatro abas, barra lateral, toolpad, palco, inspetor e camada de modais.',
+      y: 'Todo o conteúdo é gerado em JavaScript; o HTML só declara os pontos de montagem e os <b>data-tool</b> / <b>data-view</b> que o main.js liga por delegação.',
+      k: ['#stage-host', '#tree', '#inspector', 'data-view'] },
+
+    { p: 'public/js/main.js', l: 398, g: 'state',
+      w: 'Bootstrap: inicializa canvas e painéis, liga abas, toolpad, zoom, histórico, teclado e clipboard.',
+      y: 'Concentra os atalhos globais e o painel de validação. A validação roda com <b>250ms de debounce</b>: a cada tecla disputaria o frame com o canvas.',
+      k: ['boot', 'bindKeyboard', 'refreshValidation', 'TOOL_KEYS'] },
+
+    { p: 'public/js/store.js', l: 317, g: 'state',
+      w: 'Estado central, histórico de undo/redo, auto-save e o pub/sub que liga as camadas.',
+      y: '<b>commit()</b> é o único caminho de mutação: empilha snapshot, aplica em cópia, avisa assinantes e agenda gravação com 700ms de debounce. A <b>coalesceKey</b> agrupa digitação contínua em um passo de undo; viewport fica fora do histórico, para Ctrl+Z não desfazer um scroll.',
+      k: ['commit', 'undo', 'redo', 'flushSave', 'on/emit', 'saveViewport'] },
+
+    { p: 'public/js/models.js', l: 249, g: 'state',
+      w: 'Fábricas de todos os elementos do canvas e a geração do event_id.',
+      y: 'A forma que vai para o JSON nasce aqui, e só aqui. O <b>padStart(3,"0")</b> no prefixo ASCII existe para "AB" e "6566" não colidirem; o <b>Set</b> em renewEventIds impede repetição dentro do mesmo lote de cópias, que caem todas no mesmo segundo.',
+      k: ['createEventCard', 'generateEventId', 'renewEventIds', 'createConnector'] },
+
+    { p: 'public/js/constants.js', l: 129, g: 'state',
+      w: 'Vocabulário fixo: tipos de evento, escopos, catálogos do GA4, limites e paletas.',
+      y: 'Fica em um arquivo só para canvas, inspetor, dicionário e validador falarem exatamente a mesma língua. Traz os 18 parâmetros padrão de items[], os nomes reservados do GA4 e os limites oficiais.',
+      k: ['EVENT_TYPES', 'GA4_ITEM_PARAMS', 'RESERVED_EVENT_NAMES', 'GA4_LIMITS'] },
+
+    { p: 'public/js/api.js', l: 72, g: 'state',
+      w: 'Único ponto de contato com o back-end.',
+      y: 'Toda chamada passa por <b>request()</b>, que normaliza erro: resposta que não é JSON — proxy, servidor caído no meio — não pode virar um SyntaxError críptico na tela. A UI sempre recebe um Error com mensagem legível.',
+      k: ['request', 'readPage', 'savePage', 'exportEvents'] },
+
+    { p: 'public/js/util.js', l: 157, g: 'state',
+      w: 'Utilitários puros. Nada aqui conhece o DOM da aplicação.',
+      y: '<b>toSnakeCase</b> e <b>isSnakeCase</b> são a base do validador de nomenclatura GA4. O <b>debounce</b> devolve <b>cancel</b> e <b>flush</b>, e é o que permite ao flushSave cancelar o auto-save agendado e gravar na hora.',
+      k: ['debounce', 'clone', 'esc', 'toSnakeCase', 'normalizeName'] },
+
+    { p: 'public/js/canvas/stage.js', l: 1028, g: 'canvas',
+      w: 'O canvas infinito: palco Konva, pan, zoom, ferramentas, seleção, arrasto, conector magnético e edição inline.',
+      y: 'O render é <b>incremental por fingerprint</b> — reconstruir tudo a cada tecla era a maior fonte de travamento. Durante um arrasto nada é reconstruído: o Konva move os nós e só os conectores são recalculados. A ordem Z é realinhada à mão porque layer.add() em nó já existente é no-op.',
+      k: ['render', 'nodeCache', 'redrawConnectors', 'exportPNG', 'fitToContent'] },
+
+    { p: 'public/js/canvas/nodes.js', l: 609, g: 'canvas',
+      w: 'Traduz um elemento do documento em um nó do Konva. Só a parte visual.',
+      y: 'Não conhece seleção, ferramenta nem store: recebe o elemento e devolve um Konva.Group. O card é desenhado com um cursor vertical que avança a cada bloco, e a altura real medida vai para o <b>sizeCache</b> — é assim que o conector encosta na borda certa.',
+      k: ['buildNode', 'buildEventCard', 'paramBlock', 'buildConnector', 'imageCache'] },
+
+    { p: 'public/js/canvas/geometry.js', l: 148, g: 'canvas',
+      w: 'Cálculos espaciais: caixa delimitadora, âncora magnética e roteamento de conector.',
+      y: 'O <b>sizeCache</b> guarda a altura medida no render, porque card e texto têm altura dinâmica. Os pontos de controle da Bézier saem perpendiculares ao lado ancorado — é o que produz a curva em S em vez de uma diagonal cortando o card.',
+      k: ['getBounds', 'getAnchors', 'routeConnector', 'connectorPoints', 'getContentBounds'] },
+
+    { p: 'public/js/canvas/clipboard.js', l: 171, g: 'canvas',
+      w: 'Copiar e colar elementos e imagens, entre páginas e entre abas do navegador.',
+      y: 'O payload vai para a área de transferência do sistema com a assinatura <b>papyrus/clipboard</b>, e há um buffer interno de reserva para quando o navegador nega permissão. A colagem tem ordem de prioridade: imagem, JSON assinado, e por último texto solto, que vira nota adesiva.',
+      k: ['copySelection', 'handlePaste', 'rehydrate', 'insertImageFromFile'] },
+
+    { p: 'public/js/panels/sidebar.js', l: 560, g: 'panels',
+      w: 'Navegador da pasta papyrus: árvore, busca, CRUD, drag and drop e importação.',
+      y: 'Espelha a regra de nome único do servidor contra a árvore que já tem em memória, só para o aviso aparecer <b>dentro do modal</b>: fechar para mostrar um toast apagaria o nome que a pessoa precisa corrigir. Duplicar sugere o primeiro nome livre.',
+      k: ['createPage', 'rename', 'duplicatePage', 'findNameConflict', 'suggestCopyName'] },
+
+    { p: 'public/js/panels/inspector.js', l: 932, g: 'panels',
+      w: 'Painel direito onde as propriedades do elemento selecionado são editadas.',
+      y: 'O card é editado aqui, e não no canvas, porque são vinte campos e três tabelas — nada disso caberia legível dentro de um retângulo desenhado. Alteração nascida aqui marca <b>selfUpdate</b> e re-renderiza só o canvas, senão o input perderia o foco a cada tecla.',
+      k: ['renderInspector', 'paramTable', 'bindEventCardFields', 'importador de grupos'] },
+
+    { p: 'public/js/panels/exporters.js', l: 328, g: 'panels',
+      w: 'As duas saídas: foto do canvas em PNG/JPG e o export do JSON de eventos.',
+      y: 'Destinos propositalmente diferentes — a foto é material de conversa e vai para o navegador; o contrato precisa de endereço único e vai para o bucket. <b>auditWorkspace</b> lê todas as páginas do disco antes de liberar o botão e bloqueia por erro, nunca por aviso.',
+      k: ['takeCanvasPhoto', 'exportEvents', 'auditWorkspace', 'allPagePaths'] },
+
+    { p: 'public/js/panels/dictionary.js', l: 292, g: 'panels',
+      w: 'Aba do Dicionário Global: eventos, parâmetros únicos, conflitos de tipo e colisões de event_id.',
+      y: 'A agregação é feita no servidor, varrendo o workspace; aqui só apresenta e filtra. O aviso de <b>conflito de tipo</b> é o mais valioso: o mesmo parâmetro como string em uma página e int em outra é o erro que só aparece depois, no BigQuery.',
+      k: ['refresh', 'renderTab', 'exportCSV'] },
+
+    { p: 'public/js/panels/templates.js', l: 271, g: 'panels',
+      w: 'Aba de Grupos de Parâmetros: conjuntos nomeados que se repetem entre eventos.',
+      y: 'É o mecanismo que mantém nome e tipo do mesmo parâmetro iguais no workspace todo. O card importa o grupo inteiro, em vez de alguém redigitar quinze parâmetros de contexto em cada evento.',
+      k: ['render', 'newTemplateGroup', 'saveTemplates'] },
+
+    { p: 'public/js/panels/settings.js', l: 286, g: 'panels',
+      w: 'Aba Configurações: padrões da foto do canvas e credenciais do Google Cloud Storage.',
+      y: 'Os padrões da foto ficam no localStorage; o GCS vai para o servidor. Campo fixado por variável de ambiente aparece desabilitado, para ninguém editar um valor sem efeito. A tela não mostra nada sobre o host — nem caminho, nem SO, nem versão.',
+      k: ['getExportDefaults', 'gcsCard', 'statusChip'] },
+
+    { p: 'public/js/quality/validation.js', l: 178, g: 'quality',
+      w: 'Validador de governança, rodando continuamente sobre a página aberta.',
+      y: 'Aponta o problema antes de o mapa virar ticket: nomenclatura fora do padrão, parâmetro duplicado, limite estourado, campo de governança vazio. Cada issue carrega o <b>elementId</b>, e é assim que o painel dá zoom no card problemático com um clique.',
+      k: ['validateDoc', 'eventIdOf', 'RESERVED_EVENT_NAMES'] },
+
+    { p: 'public/js/quality/snippet.js', l: 187, g: 'quality',
+      w: 'Gera dataLayer.push, gtag() e JSON Schema a partir do card.',
+      y: 'É a ponte do planejamento para a implementação sem redigitar nada. Em Ecommerce monta a estrutura aninhada ecommerce.items[] e coloca antes o <b>push({ ecommerce: null })</b> que o Google recomenda para limpar o objeto anterior.',
+      k: ['buildDataLayerSnippet', 'buildGtagSnippet', 'buildJsonSchema', 'sampleValue'] },
+
+    { p: 'public/js/ui/modal.js', l: 203, g: 'ui',
+      w: 'Camada de diálogos: modal genérico empilhável, prompt, confirmação, visualizador de código e menu de contexto.',
+      y: 'Cada chamada cria o próprio backdrop, então um modal pode abrir outro sem destruir o de baixo, e só o do topo da pilha reage ao Escape. O <b>prompt</b> aceita um validador que mostra o erro dentro da caixa, sem fechar e apagar o que foi digitado.',
+      k: ['openModal', 'prompt', 'confirm', 'contextMenu', 'showCode'] },
+
+    { p: 'public/js/ui/toast.js', l: 22, g: 'ui',
+      w: 'Notificações efêmeras no rodapé.',
+      y: 'Vinte e duas linhas, três variantes e nenhuma dependência. Erro fica mais tempo na tela (5,2s) do que confirmação (3s), porque erro precisa ser lido.',
+      k: ['toast.ok', 'toast.error', 'toast.info'] },
+
+    { p: 'public/css/tokens.css', l: 144, g: 'style',
+      w: 'Design system: paleta Google, tipografia, forma, elevação e medidas de layout.',
+      y: 'As cores de tipo de evento não são decoração — codificam o dado, e por isso seguem o padrão semântico. Os aliases legados existem porque componentes antigos ainda referenciam aqueles nomes.',
+      k: ['--google-blue', '--evt-*', '--shadow-*', '--font-display'] },
+
+    { p: 'public/css/app.css', l: 910, g: 'style',
+      w: 'Layout da aplicação: topbar, barra lateral, palco, inspetor, painéis e estados.',
+      y: 'Os painéis recolhíveis são classes no workspace, e não display:none nos filhos, para a transição de largura funcionar e o estado sobreviver ao reload via localStorage.',
+      k: ['.workspace', '.sidebar', '.toolpad', '.validation'] },
+
+    { p: 'public/css/forms.css', l: 370, g: 'style',
+      w: 'Campos, botões, tabelas de parâmetro, chips e modais.',
+      y: 'Separado do app.css porque é a folha que o inspetor e os modais mais exercitam, e são as telas com maior densidade de controles do produto.',
+      k: ['.field', '.btn', '.select', '.check'] }
+  ];
+
+  var listHost = document.getElementById('file-list');
+  var hitsHost = document.getElementById('file-hits');
+  var pillHost = document.getElementById('file-pills');
+  var searchEl = document.getElementById('file-search');
+  var activeLayer = 'all';
+
+  var pillDefs = [{ id: 'all', label: 'Tudo' }].concat(
+    Object.keys(LAYERS).map(function (k) { return { id: k, label: LAYERS[k].label }; })
+  );
+
+  pillDefs.forEach(function (p) {
+    var b = document.createElement('button');
+    b.className = 'pill';
+    b.type = 'button';
+    b.textContent = p.label;
+    b.dataset.layer = p.id;
+    b.setAttribute('aria-pressed', String(p.id === 'all'));
+    b.addEventListener('click', function () {
+      activeLayer = p.id;
+      Array.prototype.forEach.call(pillHost.children, function (o) {
+        o.setAttribute('aria-pressed', String(o.dataset.layer === p.id));
+      });
+      renderFiles();
+    });
+    pillHost.appendChild(b);
+  });
+
+  function strip(html) { return String(html).replace(/<[^>]+>/g, ''); }
+
+  function renderFiles() {
+    var q = searchEl.value.trim().toLowerCase();
+
+    var rows = FILES.filter(function (f) {
+      if (activeLayer !== 'all' && f.g !== activeLayer) return false;
+      if (!q) return true;
+      var hay = (f.p + ' ' + f.w + ' ' + strip(f.y) + ' ' + f.k.join(' ') + ' ' + LAYERS[f.g].label).toLowerCase();
+      return hay.indexOf(q) !== -1;
+    });
+
+    hitsHost.textContent = rows.length === FILES.length
+      ? FILES.length + ' arquivos'
+      : rows.length + ' de ' + FILES.length + ' arquivos';
+
+    if (!rows.length) {
+      listHost.innerHTML = '<div class="empty">Nada encontrado para "' + strip(searchEl.value) + '".</div>';
+      return;
+    }
+
+    listHost.innerHTML = rows.map(function (f) {
+      var layer = LAYERS[f.g];
+      return '<article class="file" style="--layer:' + layer.color + '">' +
+        '<div class="file__top">' +
+          '<span class="file__path">' + f.p + '</span>' +
+          '<span class="file__layer">' + layer.label + '</span>' +
+          '<span class="file__lines">' + f.l + ' linhas</span>' +
+        '</div>' +
+        '<p class="file__what">' + f.w + '</p>' +
+        '<p class="file__why"><b>Por que existe:</b> ' + f.y + '</p>' +
+        '<div class="file__keys">' + f.k.map(function (k) {
+          return '<span class="key">' + k + '</span>';
+        }).join('') + '</div>' +
+      '</article>';
+    }).join('');
+  }
+
+  searchEl.addEventListener('input', renderFiles);
+  renderFiles();
+
+  /* "/" foca a busca quando o Mapa do código está aberto — o produto
+     documentado é todo operado por teclado, a documentação acompanha. */
+  window.addEventListener('keydown', function (e) {
+    var typing = /^(INPUT|TEXTAREA)$/.test(e.target.tagName) || e.target.isContentEditable;
+    if (e.key === '/' && !typing) {
+      var open = document.querySelector('.panel.is-active');
+      if (open && open.dataset.panel === 'files') { e.preventDefault(); searchEl.focus(); }
+    }
+    if (e.key >= '1' && e.key <= '7' && !typing && !e.ctrlKey && !e.metaKey && !e.altKey) {
+      select(TABS[Number(e.key) - 1].id, true);
+    }
+  });
+
+  /* ── start ──────────────────────────────────────────────── */
+  select(location.hash.slice(1) || TABS[0].id, false);
+  window.addEventListener('hashchange', function () { select(location.hash.slice(1), false); });
+})();
+</script>
+
+</body>
+</html>

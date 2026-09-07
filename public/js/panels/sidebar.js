@@ -8,7 +8,7 @@
 
 import { api } from '../api.js';
 import { state, loadTree, openPage, closePage, flushSave, on } from '../store.js';
-import { esc, formatDate, readFileAsText } from '../util.js';
+import { esc, formatDate, readFileAsText, normalizeName } from '../util.js';
 import { prompt, confirm, contextMenu, openModal } from '../ui/modal.js';
 import { toast } from '../ui/toast.js';
 import { DEFAULT_FOLDER_COLOR, FOLDER_COLORS, PAGE_COLOR } from '../constants.js';
@@ -286,6 +286,65 @@ async function changeFolderColor(path) {
   }
 }
 
+/* Nome unico no workspace */
+
+/*
+ * Espelho da regra que vale no servidor (server/lib/names.js): dentro de
+ * `papyrus` nao existem dois nomes iguais, nem entre paginas, nem entre pastas,
+ * nem de uma pasta com uma pagina.
+ *
+ * O servidor continua sendo a autoridade e recusa de novo o que passar daqui.
+ * A copia da regra existe pelo aviso: sem ela o modal fecha, o toast de erro
+ * aparece e o nome digitado se perde, que e exatamente o texto que a pessoa
+ * precisa ter em maos para corrigir.
+ */
+function findNameConflict(name, ignorePath = null, nodes = state.tree || []) {
+  const key = normalizeName(name);
+
+  for (const node of nodes) {
+    if (node.path !== ignorePath && normalizeName(node.name) === key) return node;
+    if (node.type === 'folder') {
+      const hit = findNameConflict(name, ignorePath, node.children || []);
+      if (hit) return hit;
+    }
+  }
+  return null;
+}
+
+/** Mensagem do conflito, com o nome e o lugar do que ja existe. */
+function conflictMessage(node) {
+  const dir = node.path.includes('/') ? node.path.slice(0, node.path.lastIndexOf('/')) : '';
+  const where = dir ? `na pasta "${dir}"` : 'na raiz do papyrus';
+  const what = node.type === 'folder' ? 'uma pasta' : 'uma página';
+
+  return (
+    `Já existe ${what} chamada "${node.name}" ${where}. ` +
+    'Nomes de páginas e pastas são únicos no workspace inteiro, então escolha outro nome.'
+  );
+}
+
+/** Devolve a mensagem do problema, ou nada se o nome estiver livre. */
+function validateName(name, ignorePath = null) {
+  const hit = findNameConflict(name, ignorePath);
+  return hit ? conflictMessage(hit) : null;
+}
+
+/**
+ * Primeiro nome livre para uma copia: "X (cópia)", depois "X (cópia 2)".
+ * A sugestao ja nasce valida para duplicar continuar sendo um clique e um
+ * Enter, mesmo com a regra de nome unico no caminho.
+ */
+function suggestCopyName(baseName) {
+  const first = `${baseName} (cópia)`;
+  if (!findNameConflict(first)) return first;
+
+  for (let i = 2; i < 500; i += 1) {
+    const candidate = `${baseName} (cópia ${i})`;
+    if (!findNameConflict(candidate)) return candidate;
+  }
+  return first;
+}
+
 async function createFolder(parent = activeFolder) {
   const result = await openModal({
     title: 'Nova pasta',
@@ -294,6 +353,7 @@ async function createFolder(parent = activeFolder) {
       <div class="field">
         <label class="field__label">Nome da pasta</label>
         <input class="input" id="folder-name" autocomplete="off" />
+        <div class="field__hint" id="folder-error" style="color:var(--danger)" hidden></div>
       </div>
       <div class="field">
         <label class="field__label">Cor</label>
@@ -307,12 +367,27 @@ async function createFolder(parent = activeFolder) {
       const input = modal.querySelector('#folder-name');
       const readColor = bindSwatches(modal, DEFAULT_FOLDER_COLOR);
 
+      const error = modal.querySelector('#folder-error');
+
       const submit = () => {
         const name = input.value.trim();
-        if (name) close({ name, color: readColor() });
+        if (!name) return;
+
+        const problem = validateName(name);
+        if (problem) {
+          error.textContent = problem;
+          error.hidden = false;
+          input.focus();
+          input.select();
+          return;
+        }
+        close({ name, color: readColor() });
       };
 
       input.focus();
+      input.oninput = () => {
+        error.hidden = true;
+      };
       input.onkeydown = (e) => {
         if (e.key === 'Enter') submit();
       };
@@ -336,6 +411,7 @@ async function createPage(parent = activeFolder) {
     title: 'Nova página de canvas',
     subtitle: parent ? `Dentro de: ${parent}` : 'Na raiz do papyrus',
     label: 'Nome da página (ex.: PDP, Checkout, Home)',
+    validate: (value) => validateName(value),
   });
   if (!name) return;
 
@@ -357,6 +433,8 @@ async function rename(path) {
     label: 'Novo nome',
     value: current,
     confirmText: 'Renomear',
+    // O proprio item nao conflita consigo mesmo: so a caixa da letra pode mudar.
+    validate: (value) => validateName(value, path),
   });
   if (!name || name === current) return;
 
@@ -403,7 +481,19 @@ async function duplicatePage(path) {
     const parent = path.includes('/') ? path.slice(0, path.lastIndexOf('/')) : '';
     const baseName = path.split('/').pop().replace(/\.json$/i, '');
 
-    const page = await api.createPage(parent, `${baseName} (cópia)`);
+    // A copia precisa de nome proprio, ja que nome se repetir e proibido. A
+    // sugestao ja vem livre, entao o caminho comum continua sendo confirmar.
+    const chosen = await prompt({
+      title: 'Duplicar página',
+      subtitle: `Cópia de "${baseName}"`,
+      label: 'Nome da nova página',
+      value: suggestCopyName(baseName),
+      confirmText: 'Duplicar',
+      validate: (value) => validateName(value),
+    });
+    if (!chosen) return;
+
+    const page = await api.createPage(parent, chosen);
 
     // Os cards da copia sao cards novos, e cada um precisa do proprio event_id.
     // A pasta vem do destino, que nem sempre e a da pagina aberta no canvas.
@@ -455,7 +545,7 @@ function reportImport(report) {
   if (ignored) {
     openModal({
       title: 'Arquivos ignorados',
-      subtitle: `${ignored} arquivo(s) não passaram na validação do formato papyrus.`,
+      subtitle: `${ignored} arquivo(s) não foram importados.`,
       body: report.ignored
         .map(
           (i) => `<div class="issue">

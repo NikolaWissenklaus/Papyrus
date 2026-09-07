@@ -257,6 +257,36 @@ pasta quando ela é renomeada ou arrastada para outro lugar da árvore. Ficam fo
 pastas do usuário de propósito: cor é assunto de interface, não conteúdo do mapa de
 coleta, e os JSONs de página continuam limpos.
 
+### Nomes únicos
+
+**Dentro de `papyrus` não existem dois nomes iguais.** Nem duas páginas, nem duas pastas,
+nem uma pasta e uma página compartilhando o nome. A regra vale para o workspace inteiro, e
+não para a pasta onde o item nasce: uma página `abacate` dentro de `frutas` impede outra
+`abacate` dentro de `alimentos/frutas/verde`, e a pasta `frutas` na raiz impede uma subpasta
+`frutas` em qualquer outro lugar. A comparação ignora a caixa da letra, então `Frutas` e
+`frutas` são o mesmo nome.
+
+O motivo está no exportador. O JSON de coleta usa o nome da página como chave raiz, e chave
+de objeto não se repete: com dois nomes iguais, uma página sobrescreveria a outra e o
+contrato chegaria ao bucket com eventos faltando, sem nenhum aviso. Ou o arquivo carrega o
+caminho inteiro de cada página, ou o nome é único de verdade — a escolha aqui foi a segunda,
+porque deixa o nome ser um identificador e mata a colisão na criação, quando ainda há alguém
+na tela para resolver.
+
+**Nada é renomeado em silêncio.** Antes, um nome ocupado virava `home (2)`; era a forma mais
+fácil de acabar com duas páginas parecidas sem ninguém perceber. Hoje a tentativa é recusada
+com erro dizendo qual item já usa o nome e em que pasta ele está. Vale para criar página,
+criar pasta, renomear, mover e importar — na importação, o arquivo em conflito é ignorado e
+aparece no relatório do fim, junto com os que não passaram na validação de formato.
+
+Duplicar uma página pede o nome da cópia, já preenchido com a primeira sugestão livre
+(`X (cópia)`, depois `X (cópia 2)`). Os nomes reservados `_assets` e `_system` também são
+recusados.
+
+A regra mora em `server/lib/names.js` e o servidor é a autoridade. A barra lateral repete a
+checagem contra a árvore que já tem em memória, só para o aviso aparecer dentro do modal, sem
+fechar a caixa e apagar o nome que a pessoa acabou de digitar.
+
 ### Tirar foto
 
 PNG/JPG do canvas recortado no conteúdo (sem áreas vazias), 2× a 4×, fundo
@@ -289,6 +319,9 @@ A chave raiz é o nome da página; o valor é o array de eventos:
   ]
 }
 ```
+
+O nome da página basta como chave raiz porque o workspace não aceita nome repetido:
+ver [Nomes únicos](#nomes-únicos).
 
 **O escopo é sempre o workspace inteiro**, todas as páginas da pasta `papyrus`. Não dá
 para exportar uma página isolada: contratos parciais circulando em paralelo, cada um
@@ -456,6 +489,9 @@ Duplo clique em nota adesiva ou texto edita direto no canvas.
 | `GET`/`PUT` | `/api/settings/gcs` | Lê/grava a configuração do GCS (aba Configurações) |
 | `POST` | `/api/settings/gcs/test` | Testa lib + credencial + acesso ao bucket |
 | `POST` | `/api/import/inline` | Importa arquivos enviados pelo navegador |
+
+Criar, renomear e mover respondem `409` quando o nome já existe no workspace, com a
+mensagem apontando qual item o ocupa e em que pasta (ver [Nomes únicos](#nomes-únicos)).
 
 Todo caminho recebido é resolvido contra a raiz do papyrus e rejeitado se escapar dela.
 A API não expõe caminhos absolutos nem a estrutura de pastas do host, o navegador de

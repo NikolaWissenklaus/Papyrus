@@ -11,8 +11,8 @@ import {
   toRelative,
   sanitizeName,
   exists,
-  uniquePath,
 } from '../lib/paths.js';
+import { assertNameAvailable } from '../lib/names.js';
 import { scanTree, createEmptyDoc, readDocIfValid, writeDoc } from '../lib/papyrus.js';
 import {
   readFolderColors,
@@ -38,7 +38,9 @@ router.post('/folders', async (req, res, next) => {
   try {
     const parent = resolveInPapyrus(req.body.parent || '');
     const name = sanitizeName(req.body.name);
-    const target = await uniquePath(path.join(parent, name));
+    await assertNameAvailable(name);
+
+    const target = path.join(parent, name);
     await fs.mkdir(target, { recursive: true });
 
     const relative = toRelative(target);
@@ -71,13 +73,14 @@ router.post('/pages', async (req, res, next) => {
   try {
     const parent = resolveInPapyrus(req.body.parent || '');
     const name = sanitizeName(req.body.name);
+    await assertNameAvailable(name);
+
     await fs.mkdir(parent, { recursive: true });
 
-    const target = await uniquePath(path.join(parent, `${name}.json`));
-    const pageName = path.basename(target, '.json');
-    const doc = await writeDoc(target, createEmptyDoc(pageName));
+    const target = path.join(parent, `${name}.json`);
+    const doc = await writeDoc(target, createEmptyDoc(name));
 
-    res.status(201).json({ path: toRelative(target), name: pageName, doc });
+    res.status(201).json({ path: toRelative(target), name, doc });
   } catch (err) {
     next(err);
   }
@@ -124,8 +127,13 @@ router.patch('/entry', async (req, res, next) => {
 
     const stat = await fs.stat(absolute);
     const name = sanitizeName(req.body.name);
+
+    // O proprio item nao conta como conflito: trocar so a caixa da letra, de
+    // "abacate" para "Abacate", precisa continuar sendo uma renomeacao valida.
+    await assertNameAvailable(name, { ignorePath: toRelative(absolute) });
+
     const ext = stat.isDirectory() ? '' : '.json';
-    const target = await uniquePath(path.join(path.dirname(absolute), `${name}${ext}`));
+    const target = path.join(path.dirname(absolute), `${name}${ext}`);
 
     await fs.rename(absolute, target);
 
@@ -171,7 +179,19 @@ router.post('/entry/move', async (req, res, next) => {
       return res.status(400).json({ error: 'Nao e possivel mover uma pasta para dentro dela mesma.' });
     }
 
-    const target = await uniquePath(path.join(destDir, path.basename(source)));
+    /*
+     * Mover nao muda o nome, e nome repetido ja e barrado na criacao, entao
+     * aqui a checagem so pega workspace montado antes desta regra. Ainda assim
+     * ela existe: renomear em silencio para "(2)" durante um arrastar e soltar
+     * seria a forma mais facil de acabar com duas paginas parecidas.
+     */
+    const target = path.join(destDir, path.basename(source));
+    if (await exists(target)) {
+      return res.status(409).json({
+        error: `Já existe "${path.basename(source)}" na pasta de destino. Renomeie antes de mover.`,
+      });
+    }
+
     await fs.mkdir(destDir, { recursive: true });
     await fs.rename(source, target);
     await moveFolderColors(toRelative(source), toRelative(target));

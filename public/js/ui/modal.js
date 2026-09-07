@@ -60,8 +60,22 @@ export function openModal({ title, subtitle, body, footer, wide = false, onMount
   });
 }
 
-/** Caixa de texto simples. */
-export function prompt({ title, subtitle, label = 'Nome', value = '', confirmText = 'Criar' }) {
+/**
+ * Caixa de texto simples.
+ *
+ * `validate` recebe o valor digitado e devolve a mensagem do problema, ou nada
+ * se estiver tudo certo. O erro aparece dentro do modal e a caixa continua
+ * aberta: fechar para mostrar um toast apagaria justamente o texto que a pessoa
+ * precisa corrigir.
+ */
+export function prompt({
+  title,
+  subtitle,
+  label = 'Nome',
+  value = '',
+  confirmText = 'Criar',
+  validate = null,
+}) {
   return openModal({
     title,
     subtitle,
@@ -69,18 +83,35 @@ export function prompt({ title, subtitle, label = 'Nome', value = '', confirmTex
       <div class="field">
         <label class="field__label">${esc(label)}</label>
         <input class="input" id="prompt-input" value="${esc(value)}" autocomplete="off" />
+        <div class="field__hint" id="prompt-error" style="color:var(--danger)" hidden></div>
       </div>`,
     footer: `
       <button class="btn btn--ghost" data-close="null">Cancelar</button>
       <button class="btn btn--primary" id="prompt-ok">${esc(confirmText)}</button>`,
     onMount: (root, close) => {
       const input = root.querySelector('#prompt-input');
+      const error = root.querySelector('#prompt-error');
+
       const submit = () => {
         const v = input.value.trim();
-        if (v) close(v);
+        if (!v) return;
+
+        const problem = validate?.(v);
+        if (problem) {
+          error.textContent = problem;
+          error.hidden = false;
+          input.focus();
+          input.select();
+          return;
+        }
+        close(v);
       };
+
       input.focus();
       input.select();
+      input.oninput = () => {
+        error.hidden = true;
+      };
       input.onkeydown = (e) => {
         if (e.key === 'Enter') submit();
       };

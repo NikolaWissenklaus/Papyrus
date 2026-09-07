@@ -11,17 +11,12 @@
 import express from 'express';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import {
-  SYSTEM_DIR,
-  resolveInPapyrus,
-  toRelative,
-  sanitizeName,
-  uniquePath,
-} from '../lib/paths.js';
+import { SYSTEM_DIR, resolveInPapyrus, toRelative, sanitizeName } from '../lib/paths.js';
 import { collectAllDocs, extractEvents, readDocIfValid, isPapyrusDoc, EVENT_ID_PARAM } from '../lib/papyrus.js';
 import {
   gcsStatus, uploadToGcs, readGcsFileConfig, saveGcsConfig, testGcs, gcsEnvOverrides,
 } from '../lib/gcs.js';
+import { collectNames, findConflict, describeConflict, normalizeName } from '../lib/names.js';
 
 const router = express.Router();
 const TEMPLATES_FILE = path.join(SYSTEM_DIR, 'parameter-groups.json');
@@ -157,6 +152,9 @@ router.get('/dictionary', async (_req, res, next) => {
  *
  * Gera `{ "<nome da pagina>": [ ...eventos com parametros tipados ] }`.
  * Nenhuma coordenada de canvas, cor ou elemento visual entra no arquivo.
+ *
+ * O nome da pagina basta como chave porque o workspace nao aceita nome
+ * repetido: ver `assertNameIsFree` em routes/tree.js.
  *
  * O destino e sempre o bucket do Google Cloud Storage configurado. O contrato
  * de coleta precisa morar em um lugar so, versionado e acessivel ao time; um
@@ -327,6 +325,11 @@ router.post('/import/inline', async (req, res, next) => {
 
     await fs.mkdir(destination, { recursive: true });
 
+    // Nome repetido nao derruba o lote inteiro: o arquivo em conflito vai para
+    // `ignored` com o motivo, do mesmo jeito que um JSON fora do formato, e a
+    // UI mostra a lista no fim.
+    const taken = await collectNames();
+
     for (const f of files) {
       let doc = null;
       try {
@@ -340,8 +343,18 @@ router.post('/import/inline', async (req, res, next) => {
         continue;
       }
       const safe = sanitizeName(f.name.replace(/\.json$/i, ''));
-      const target = await uniquePath(path.join(destination, `${safe}.json`));
+      const conflict = findConflict(taken, safe);
+      if (conflict) {
+        report.ignored.push({ file: f.name, reason: describeConflict(conflict) });
+        continue;
+      }
+
+      const target = path.join(destination, `${safe}.json`);
       await fs.writeFile(target, JSON.stringify(doc, null, 2), 'utf8');
+
+      // O proprio lote pode trazer dois arquivos de mesmo nome, e o segundo
+      // precisa colidir com o primeiro: o mapa cresce a cada gravacao.
+      taken.set(normalizeName(safe), { name: safe, type: 'page', path: toRelative(target) });
       report.imported.push(toRelative(target));
     }
 
