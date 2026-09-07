@@ -1,15 +1,13 @@
-/**
- * constants.js
- * ---------------------------------------------------------------------------
- * Vocabulario fixo da ferramenta: taxonomias, cores funcionais e catalogos GA4.
- * Centralizado aqui para que canvas, inspetor, dicionario e validador falem
- * exatamente a mesma lingua.
+/*
+ * Vocabulario fixo da ferramenta: taxonomias, cores funcionais e catalogos do
+ * GA4. Fica tudo em um arquivo so para que canvas, inspetor, dicionario e
+ * validador falem exatamente a mesma lingua.
  */
 
-/**
- * Tipos de evento + cor funcional da tarja do card.
- * `color` é o tom pleno (acento), `soft` o fundo tintado do cabeçalho do card
- * e `text` a variante escura legível sobre o fundo `soft`.
+/*
+ * Tipos de evento e a cor da tarja do card. `color` e o tom pleno usado como
+ * acento, `soft` e o fundo tintado do cabecalho e `text` e a variante escura,
+ * legivel sobre o `soft`.
  */
 export const EVENT_TYPES = [
   { id: 'view', label: 'View', color: '#1A73E8', soft: '#E8F0FE', text: '#1967D2' },
@@ -69,7 +67,7 @@ export const GA4_ECOMMERCE_EVENT_PARAMS = [
   { name: 'items', type: 'array', required: true },
 ];
 
-/** Nomes reservados pelo GA4 — nao podem ser usados em eventos customizados. */
+/** Nomes que o GA4 reserva. Eventos customizados nao podem usar nenhum deles. */
 export const RESERVED_EVENT_NAMES = new Set([
   'ad_activeview', 'ad_click', 'ad_exposure', 'ad_query', 'ad_reward',
   'adunit_exposure', 'app_clear_data', 'app_exception', 'app_install',
@@ -101,6 +99,24 @@ export const SHAPE_COLORS = [
 ];
 
 export const STICKY_COLORS = ['#FEF7C3', '#D8F0E1', '#DCE6FB', '#FBDDE3', '#F3E8FD', '#F1F3F4'];
+
+/** Cor do icone de pagina na barra lateral. E fixa: so pasta aceita cor propria. */
+export const PAGE_COLOR = '#1A73E8';
+
+/** Cor de pasta usada quando o usuario nao escolhe nenhuma. */
+export const DEFAULT_FOLDER_COLOR = '#F29900';
+
+/** Paleta oferecida no seletor de cor de pasta. */
+export const FOLDER_COLORS = [
+  { value: '#F29900', label: 'Laranja' },
+  { value: '#1A73E8', label: 'Azul' },
+  { value: '#188038', label: 'Verde' },
+  { value: '#D93025', label: 'Vermelho' },
+  { value: '#A142F4', label: 'Roxo' },
+  { value: '#E52592', label: 'Rosa' },
+  { value: '#12B5CB', label: 'Ciano' },
+  { value: '#5F6368', label: 'Cinza' },
+];
 
 /** Geometria padrao dos elementos criados no canvas. */
 export const DEFAULTS = {

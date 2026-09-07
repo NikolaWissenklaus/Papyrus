@@ -1,4 +1,4 @@
-# Papyrus
+# Papyrus `v2.5.0`
 
 Ferramenta visual de **planejamento de mensuração e mapas de coleta para o GA4**.
 Canvas infinito para desenhar a arquitetura de dados de uma tela, prints de referência,
@@ -47,13 +47,14 @@ front-end e a API já estão desacoplados.
 ## 2. Estrutura do projeto
 
 ```
-herculano/                      # raiz do projeto no disco (o app: Papyrus)
+Papyrus/                        # raiz do projeto no disco
 ├── server/                     # Back-end Express
 │   ├── index.js                # Bootstrap, estáticos, montagem das rotas
 │   ├── lib/
 │   │   ├── paths.js            # Resolução segura de caminhos (anti path-traversal)
 │   │   ├── papyrus.js          # Formato do arquivo, validação, varredura da árvore
-│   │   └── gcs.js              # Adapter do Google Cloud Storage (opcional)
+│   │   ├── folder-colors.js    # Cor do ícone de cada pasta da barra lateral
+│   │   └── gcs.js              # Adapter do Google Cloud Storage
 │   └── routes/
 │       ├── tree.js             # CRUD de pastas/páginas, leitura e gravação do canvas
 │       ├── assets.js           # Upload de imagens coladas
@@ -82,7 +83,7 @@ herculano/                      # raiz do projeto no disco (o app: Papyrus)
 │       │   ├── inspector.js    # Edição do elemento selecionado
 │       │   ├── templates.js    # Aba Grupos de Parâmetros
 │       │   ├── dictionary.js   # Aba Dicionário Global
-│       │   └── exporters.js    # PNG e Trust Factor
+│       │   └── exporters.js    # Tirar foto (PNG/JPG) e Exportar (JSON)
 │       ├── quality/
 │       │   ├── validation.js   # Validador de governança
 │       │   └── snippet.js      # Geradores de dataLayer / gtag / JSON Schema
@@ -92,7 +93,7 @@ herculano/                      # raiz do projeto no disco (o app: Papyrus)
 │
 └── papyrus/                    # Criada na primeira execução, seus arquivos
     ├── _assets/                # Imagens coladas no canvas
-    └── _system/                # Grupos de parâmetros salvos
+    └── _system/                # Grupos de parâmetros, cores de pasta, config do GCS
 ```
 
 ---
@@ -134,7 +135,10 @@ e não abrem. Na importação, eles são recusados e listados com o motivo.
         "trigger": "Carregamento da PDP",
         "squad": "Growth", "owner": "ana@empresa", "notes": "",
         "ticketName": "...", "ticketId": "ANA-1234", "ticketUrl": "https://...",
-        "eventParams": [{ "id": "p1", "name": "currency", "type": "string", "required": true, "example": "BRL" }],
+        "eventParams": [
+          { "id": "p1", "name": "event_id", "type": "string", "required": true, "example": "d080068080-p1757203200-6k3f9zq" },
+          { "id": "p2", "name": "currency", "type": "string", "required": true, "example": "BRL" }
+        ],
         "userParams": [],
         "itemParams": []
       }
@@ -158,7 +162,7 @@ e o documento guarda só a URL, os JSONs continuam leves e versionáveis no Git.
 4. **Crie os cards de evento** (`E`) e preencha no inspetor à direita.
 5. **Ligue pin ↔ card** com o conector magnético (`C`): clique na origem, depois no destino.
 6. **Confira a validação** no rodapé, clique num problema para o canvas voar até o card.
-7. **Exporte o Trust Factor** para entregar ao time de engenharia.
+7. **Exporte** o JSON para o bucket, de onde o time de engenharia consome.
 
 ### O Card de Evento
 
@@ -185,6 +189,39 @@ Ao mudar o tipo para **Ecommerce**, os 18 parâmetros padrão do array `items` d
 injetados automaticamente (`item_id`, `item_name`, `price`, `quantity`, …) e podem ser
 editados ou complementados com parâmetros customizados.
 
+### O `event_id`
+
+Todo card nasce com um parâmetro `event_id` obrigatório e já preenchido. É a chave que
+amarra o planejamento ao dado coletado, então não dá para depender de alguém lembrar de
+criá-la. O valor tem três partes separadas por hífen:
+
+| Parte | Formato | Exemplo |
+|---|---|---|
+| Pasta | `d` + código ASCII de cada letra do nome da pasta onde a página está | `d099111114` (pasta `cor`) |
+| Momento | `p` + timestamp da criação, em segundos | `p1757203200` |
+| Sorteio | `6` + 6 caracteres aleatórios | `6k3f9zq` |
+
+Os códigos ASCII vão com zero à esquerda (3 dígitos) para o prefixo continuar
+identificando a pasta sem ambiguidade. Página na raiz do workspace usa a própria pasta
+`papyrus`.
+
+O campo é editável como qualquer outro parâmetro: o valor gerado é um ponto de partida, e
+dá para trocar por um id que venha de outro sistema.
+
+**O que não pode é repetir.** Dois cards com o mesmo `event_id` chegam como o mesmo evento
+no GA4, então a unicidade é cobrada em dois lugares:
+
+- o **validador do rodapé** acusa erro quando dois cards da página aberta têm o mesmo
+  `event_id`, ou quando algum card está sem o campo preenchido;
+- o **Dicionário Global** cruza o workspace inteiro e mostra, no topo, todo `event_id`
+  usado por mais de um card, dizendo em quais eventos e páginas ele aparece. O validador
+  só enxerga a página aberta, então colisão entre páginas aparece aqui.
+
+Cópia de card é card novo, e já nasce com id próprio: colar (`Ctrl + V`), duplicar
+(`Ctrl + D`) e duplicar a página inteira geram um `event_id` para cada cópia. Ao colar em
+outra pasta, o id sai com o prefixo da pasta de destino. A importação de páginas é a
+exceção: ela traz um mapa que já existe, então preserva os ids como estão.
+
 ### Grupos de Parâmetros
 
 Aba própria. Um grupo é um conjunto nomeado de parâmetros recorrentes, “Contexto de Página”,
@@ -203,15 +240,34 @@ Catálogo consolidado de todo o workspace:
 - **De-para**, matriz parâmetro × evento
 - **Conflito de tipo**, o mesmo nome declarado como tipos diferentes em eventos distintos.
   É o erro que mais custa caro quando já chegou no BigQuery, então ele aparece em destaque no topo.
+- **`event_id` repetido**, todo id usado por mais de um card, com os eventos e páginas onde
+  ele aparece. Também em destaque no topo.
+
+Nome de evento repetido não entra nessa lista: o mesmo evento declarado em páginas
+diferentes é normal. O que não pode repetir é o `event_id`.
 - **Exportar CSV**, o de-para completo, com BOM para o Excel abrir com acentuação correta
 
-### Exportação
+### Organização da barra lateral
 
-**Imagem (PNG/JPG)**, recorta o conteúdo (sem áreas vazias), 2× a 4×, fundo
+Pastas e páginas têm ícones coloridos. Página é sempre azul e **pasta é personalizável**:
+a cor é escolhida na criação (laranja por padrão) e pode ser trocada quando quiser em
+**Mudar a cor**, no menu de contexto da pasta. As cores ficam em
+`papyrus/_system/folder-colors.json`, indexadas pelo caminho da pasta, e acompanham a
+pasta quando ela é renomeada ou arrastada para outro lugar da árvore. Ficam fora das
+pastas do usuário de propósito: cor é assunto de interface, não conteúdo do mapa de
+coleta, e os JSONs de página continuam limpos.
+
+### Tirar foto
+
+PNG/JPG do canvas recortado no conteúdo (sem áreas vazias), 2× a 4×, fundo
 branco/cinza/transparente, com opção de exportar apenas a seleção atual. A escala é
 ajustada automaticamente se o mapa for grande demais para o limite de canvas do navegador.
+A foto sai sempre pelo navegador: é material de apresentação e conversa, tem vida curta
+e não precisa de versionamento.
 
-**Trust Factor**, JSON só com regra de negócio. Nenhuma coordenada, cor ou elemento visual.
+### Exportar
+
+JSON só com regra de negócio. Nenhuma coordenada, cor ou elemento visual.
 A chave raiz é o nome da página; o valor é o array de eventos:
 
 ```json
@@ -234,15 +290,34 @@ A chave raiz é o nome da página; o valor é o array de eventos:
 }
 ```
 
-Você escolhe o escopo (página aberta ou workspace inteiro) e o destino: download pelo
-navegador ou um bucket do Google Cloud Storage. Por segurança, a interface **não expõe
-nem grava em pastas da máquina do servidor**, não há caminhos de disco em lugar nenhum
-da UI ou da API.
+**O escopo é sempre o workspace inteiro**, todas as páginas da pasta `papyrus`. Não dá
+para exportar uma página isolada: contratos parciais circulando em paralelo, cada um
+dizendo uma coisa, são o problema que o arquivo único resolve.
 
-### Google Cloud Storage (opcional)
+**O destino também é único: o bucket do Google Cloud Storage**, sem download. O contrato de
+coleta precisa de um endereço só, compartilhado e versionado; um arquivo baixado na máquina
+de quem exportou vira cópia divergente no dia seguinte. Sem o GCS configurado, o botão fica
+desabilitado e o modal diz o que falta.
 
-A estrutura de publicação em GCS já vem pronta, mas desativada por padrão para manter a
-ferramenta leve e offline. Para ativar:
+O nome do arquivo vem preenchido como `papyrus` e o campo é editável.
+
+**A exportação só acontece com o workspace limpo.** Ao abrir o modal, o Papyrus lê todas as
+páginas, roda o validador em cada uma e ainda cruza os `event_id` entre elas. Havendo erro,
+os problemas aparecem listados por página e o botão fica desabilitado. Avisos não bloqueiam:
+squad em branco ou gatilho sem descrição são coisas de mapa em andamento, e travar por elas
+deixaria o export inalcançável.
+
+O servidor repete a checagem de `event_id` por conta própria e recusa a requisição com `409`
+se algum id faltar ou se repetir. O arquivo no bucket é lido como verdade pelo time de
+engenharia, então essa garantia não pode depender só da tela.
+
+Por segurança, a interface **não expõe nem grava em pastas da máquina do servidor**, não
+há caminhos de disco em lugar nenhum da UI ou da API.
+
+### Google Cloud Storage
+
+Destino da exportação. A dependência não é instalada por padrão para manter a ferramenta
+leve e offline. Para ativar:
 
 1. Instale a lib oficial: `npm install @google-cloud/storage` (e reinicie o servidor)
 2. Abra a aba **Configurações → Exportação, Google Cloud Storage** e informe o bucket,
@@ -261,71 +336,76 @@ Também dá para configurar por variáveis de ambiente, que têm prioridade sobr
 $env:GCS_BUCKET="meu-bucket"; $env:GCS_PREFIX="papyrus/"; $env:GCS_KEYFILE="C:\chaves\sa.json"; npm start
 ```
 
-Quando configurado, a opção **Google Cloud Storage** aparece habilitada nos modais de
-exportação (Trust Factor e imagem). O status pode ser consultado em `GET /api/gcs/status`.
+Enquanto não estiver configurado, o botão **Exportar** abre o modal com o destino
+explicando o que falta e o botão de confirmação desabilitado. O status pode ser
+consultado em `GET /api/gcs/status`.
 
 ### Aba Configurações
 
-- **Exportação de imagem**, padrões de resolução, formato, fundo e margem que
-  pré-preenchem o exportador (salvos no navegador).
+- **Foto do canvas**, padrões de resolução, formato, fundo e margem que
+  pré-preenchem o modal "Tirar foto" (salvos no navegador).
 - **Google Cloud Storage**, bucket, prefixo, project id, service account e teste de conexão.
 
 A aba não exibe nenhuma informação do servidor (caminhos, sistema operacional, runtime).
 
 ---
 
-## 5. Features de Quality of Life
+## 5. O que a ferramenta faz além do básico
 
-Além do escopo pedido, foram incluídas as seguintes:
+### Validador de governança contínuo
 
-**1. Validador de governança contínuo (rodapé do canvas).**
-Roda a cada alteração e aponta, antes de o mapa virar ticket:
-nome fora de snake_case (com sugestão de correção), nomes reservados do GA4 e prefixos
-proibidos (`ga_`, `google_`, `firebase_`), estouro dos limites oficiais (40 caracteres em nomes,
-25 parâmetros por evento), parâmetros duplicados no mesmo escopo, eventos duplicados na página,
-parâmetro obrigatório sem valor de exemplo, evento Ecommerce sem `currency`/`value` ou sem
-`items[]`, campos de governança vazios e conectores órfãos.
-Clicar em um problema centraliza o canvas no card responsável.
+Fica no rodapé do canvas, roda a cada alteração e aponta o problema antes de o mapa virar
+ticket: nome fora de snake_case (com sugestão de correção), nome reservado do GA4 e prefixo
+proibido (`ga_`, `google_`, `firebase_`), estouro dos limites oficiais (40 caracteres no nome,
+25 parâmetros por evento), parâmetro duplicado no mesmo escopo, evento duplicado na página,
+parâmetro obrigatório sem valor de exemplo, evento Ecommerce sem `currency`, sem `value` ou
+sem `items[]`, campo de governança vazio e conector órfão. Clicar no problema centraliza o
+canvas no card responsável.
 
-**2. Geradores de código no card.**
-Três botões que fecham o ciclo “planejei → implemento” sem redigitação:
-- `dataLayer.push`, com o `push({ ecommerce: null })` recomendado pelo Google e a estrutura
-  `ecommerce.items[]` montada, comentários de obrigatoriedade e cabeçalho com squad/gatilho/card
-- `gtag()`, equivalente na API gtag.js
-- **JSON Schema**, contrato de coleta para validar payloads em testes automatizados
+### Geradores de código no card
 
-**3. Normalização automática para snake_case.** Ao sair do campo de nome (evento ou parâmetro),
-o texto é convertido, acentos incluídos. Há também um botão `snake_case` que normaliza a
-tabela inteira de uma vez.
+São três botões, e a ideia é ir do planejamento para a implementação sem redigitar nada:
 
-**4. Detecção de conflito de tipo entre páginas** no Dicionário Global.
+- `dataLayer.push`, já com o `push({ ecommerce: null })` recomendado pelo Google, a estrutura
+  `ecommerce.items[]` montada, comentário de obrigatoriedade e cabeçalho com squad, gatilho e card
+- `gtag()`, o equivalente na API gtag.js
+- **JSON Schema**, para validar payload em teste automatizado
 
-**5. Auto-save com coalescência de histórico.** Grava sozinho 700ms após a última alteração.
-Digitar um nome inteiro consome **um** passo de undo, não trinta.
+### Nomes sempre em snake_case
 
-**6. Alinhar e distribuir** em seleção múltipla (6 alinhamentos + 2 distribuições).
+Ao sair do campo de nome, de evento ou de parâmetro, o texto é convertido, acentos incluídos.
+O botão `snake_case` normaliza a tabela inteira de uma vez.
 
-**7. Colar texto vira nota adesiva.** Ctrl+V com texto na área de transferência cria um sticky
-já preenchido, útil ao trazer requisitos de fora.
+### Histórico e auto-save
 
-**8. Copiar/colar entre páginas e abas.** O clipboard grava JSON assinado no sistema, então dá
-para copiar cards de uma página e colar em outra, inclusive em outra aba do navegador.
-Conectores internos à seleção são religados às cópias.
+Grava sozinho 700ms depois da última alteração. Digitar um nome inteiro consome **um** passo
+de undo, e não trinta. O undo e o redo também estão na barra superior, com o estado
+habilitado ou desabilitado em tempo real.
 
-**9. Duplicar página** e **exportar Trust Factor** direto pelo menu de contexto da barra lateral.
+### Trabalho com vários elementos
 
-**10. Drag & drop na árvore** para mover páginas entre pastas.
+Alinhar e distribuir em seleção múltipla (seis alinhamentos e duas distribuições). O
+clipboard grava JSON assinado no sistema, então dá para copiar cards de uma página e colar
+em outra, inclusive em outra aba do navegador; conector interno à seleção é religado às
+cópias. Colar texto puro cria uma nota adesiva já preenchida, o que ajuda ao trazer
+requisito de fora.
 
-**11. Ctrl+clique no card do Jira/Trello** abre o ticket direto do canvas.
+### Navegação e organização
 
-**12. Painéis recolhíveis.** A barra lateral e o inspetor abrem/fecham pelos botões da
-barra superior ou pelos atalhos `[` e `]`, o estado fica salvo entre sessões. Dar duplo
-clique em um card de evento reabre o inspetor automaticamente.
+Drag and drop na árvore para mover página entre pastas, duplicar página e exportar pelo
+menu de contexto da barra lateral, e pasta colorida, com a cor escolhida na criação e
+editável depois, para separar jornada, squad ou fase do projeto em uma árvore grande.
 
-**13. Undo/redo na barra superior** com estado habilitado/desabilitado em tempo real.
+A barra lateral e o inspetor recolhem pelos botões da barra superior ou pelos atalhos `[` e
+`]`, e o estado fica salvo entre sessões. Duplo clique em um card de evento reabre o
+inspetor. Ctrl+clique no card do Jira ou do Trello abre o ticket direto do canvas.
 
-**14. Exportar apenas a seleção** no exportador de imagem, além de formato JPG para
-arquivos menores.
+### Outros
+
+Conflito de tipo entre páginas aparece no Dicionário Global. A foto do canvas pode sair
+apenas com a seleção atual, e em JPG quando o arquivo precisa ser menor. E todo card novo
+já vem com o `event_id` automático, derivado da pasta, do momento da criação e de um
+sorteio; os detalhes estão em [O `event_id`](#o-event_id).
 
 ---
 
@@ -359,8 +439,9 @@ Duplo clique em nota adesiva ou texto edita direto no canvas.
 
 | Método | Rota | Função |
 |---|---|---|
-| `GET` | `/api/tree` | Árvore completa da pasta papyrus |
-| `POST` | `/api/folders` | Cria pasta |
+| `GET` | `/api/tree` | Árvore completa da pasta papyrus (com a cor de cada pasta) |
+| `POST` | `/api/folders` | Cria pasta (aceita `color`) |
+| `PUT` | `/api/folders/color` | Troca a cor de uma pasta |
 | `POST` | `/api/pages` | Cria página de canvas |
 | `GET` | `/api/page?path=` | Lê página (valida `json-type`) |
 | `PUT` | `/api/page` | Grava página |
@@ -370,9 +451,8 @@ Duplo clique em nota adesiva ou texto edita direto no canvas.
 | `POST` | `/api/assets` | Upload de imagem |
 | `GET`/`PUT` | `/api/templates` | Grupos de parâmetros |
 | `GET` | `/api/dictionary` | Dicionário global consolidado |
-| `POST` | `/api/export/trust` | Exportação Trust Factor |
+| `POST` | `/api/export/events` | Exporta o JSON de eventos para o bucket |
 | `GET` | `/api/gcs/status` | Diagnóstico da configuração do Google Cloud Storage |
-| `POST` | `/api/export/gcs` | Upload genérico para o bucket configurado |
 | `GET`/`PUT` | `/api/settings/gcs` | Lê/grava a configuração do GCS (aba Configurações) |
 | `POST` | `/api/settings/gcs/test` | Testa lib + credencial + acesso ao bucket |
 | `POST` | `/api/import/inline` | Importa arquivos enviados pelo navegador |

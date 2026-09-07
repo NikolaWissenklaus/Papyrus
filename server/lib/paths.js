@@ -1,11 +1,10 @@
-/**
- * paths.js
- * ---------------------------------------------------------------------------
+/*
  * Resolucao segura de caminhos dentro da pasta `papyrus`.
  *
- * Toda a API do Papyrus trabalha com "caminhos relativos" (ex: "Checkout/home.json").
- * Este modulo e o unico ponto onde esses caminhos relativos viram caminhos absolutos
- * no disco, garantindo que nenhuma requisicao consiga escapar da raiz (path traversal).
+ * A API inteira trabalha com caminho relativo, do tipo "Checkout/home.json".
+ * Este e o unico modulo que transforma esse caminho em caminho absoluto no
+ * disco, e e ele que garante que nenhuma requisicao escape da raiz por path
+ * traversal.
  */
 
 import path from 'node:path';
@@ -22,7 +21,7 @@ export const PAPYRUS_ROOT = process.env.PAPYRUS_DIR
   ? path.resolve(process.env.PAPYRUS_DIR)
   : path.join(PROJECT_ROOT, 'papyrus');
 
-/** Pastas reservadas do sistema — nao aparecem na arvore de navegacao. */
+/** Pastas reservadas do sistema. Nao aparecem na arvore de navegacao. */
 export const SYSTEM_DIRS = ['_assets', '_system'];
 
 /** Onde ficam imagens coladas/importadas. */
@@ -39,7 +38,7 @@ export async function ensureBaseStructure() {
 }
 
 /**
- * Converte um caminho relativo vindo da API em caminho absoluto validado.
+ * Converte um caminho relativo vindo da API em caminho absoluto ja validado.
  * Lanca erro se o resultado cair fora de PAPYRUS_ROOT.
  *
  * @param {string} relativePath ex: "" | "Checkout" | "Checkout/carrinho.json"

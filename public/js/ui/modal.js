@@ -1,7 +1,6 @@
-/**
- * ui/modal.js
- * ---------------------------------------------------------------------------
- * Camada de dialogos da aplicacao. Todos os modais sao promise-based:
+/*
+ * Camada de dialogos da aplicacao. Todo modal devolve uma promise:
+ *
  *   const nome = await prompt({ title: 'Nova pasta' });   // string | null
  */
 
@@ -10,8 +9,8 @@ import { esc } from '../util.js';
 const layer = () => document.getElementById('modal-layer');
 
 /**
- * Modal generico e EMPILHAVEL: cada chamada cria o proprio backdrop, entao um
- * modal pode abrir outro sem que o de baixo seja destruido.
+ * Modal generico e empilhavel: cada chamada cria o proprio backdrop, entao um
+ * modal pode abrir outro sem destruir o de baixo.
  *
  * @returns {Promise<any>} valor passado para close(), ou null se cancelado.
  */
@@ -130,8 +129,8 @@ export function showCode({ title, subtitle, code, filename }) {
 }
 
 /*
- * Nota: o antigo `pickPath` (navegador de diretorios do SO) foi removido de
- * proposito — a ferramenta nao exibe nem navega pastas do servidor.
+ * O antigo `pickPath`, que navegava diretorios do SO, foi removido de
+ * proposito: a ferramenta nao exibe nem percorre pastas do servidor.
  */
 
 /** Menu de contexto ancorado em coordenadas de tela. */

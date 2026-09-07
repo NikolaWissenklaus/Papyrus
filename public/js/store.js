@@ -1,18 +1,14 @@
-/**
- * store.js
- * ---------------------------------------------------------------------------
- * Estado central da aplicacao + historico de undo/redo + auto-save.
+/*
+ * Estado central da aplicacao, historico de undo/redo e auto-save.
  *
- * Modelo mental: existe UM documento aberto por vez (`state.doc`). Toda alteracao
- * passa por `commit()`, que:
- *   1. empilha um snapshot do estado anterior (undo)
- *   2. aplica a mutacao em uma copia
- *   3. notifica os assinantes
- *   4. agenda o auto-save
+ * Existe um documento aberto por vez, em `state.doc`. Toda alteracao passa por
+ * commit(), que empilha um snapshot do estado anterior, aplica a mutacao em uma
+ * copia, avisa os assinantes e agenda o auto-save.
  *
- * Snapshots inteiros do documento sao mais simples e muito mais confiaveis que
- * um sistema de comandos invertidos — e o custo e irrelevante nesta escala
- * (paginas tipicas tem dezenas de elementos, nao milhares).
+ * O historico guarda snapshots inteiros do documento. Um sistema de comandos
+ * invertidos seria mais economico, mas tambem bem mais facil de quebrar, e
+ * nesta escala a economia nao paga: uma pagina tipica tem dezenas de
+ * elementos, nao milhares.
  */
 
 import { api } from './api.js';
@@ -43,17 +39,15 @@ export const state = {
 
 const history = { undo: [], redo: [] };
 
-/**
- * Ultimo commit registrado. Serve para "coalescer" alteracoes continuas:
- * digitar um nome de evento gera dezenas de commits, mas deve consumir apenas
- * UM passo de undo.
+/*
+ * Ultimo commit registrado, usado para agrupar alteracoes continuas. Digitar o
+ * nome de um evento gera dezenas de commits, e todos eles precisam caber em um
+ * unico passo de undo.
  */
 let lastCommit = { key: null, at: 0 };
 const COALESCE_WINDOW = 1200;
 
-/* -------------------------------------------------------------------------- */
-/* Pub/Sub                                                                    */
-/* -------------------------------------------------------------------------- */
+/* Pub/Sub */
 
 export function on(event, handler) {
   if (!listeners.has(event)) listeners.set(event, new Set());
@@ -65,9 +59,7 @@ export function emit(event, payload) {
   listeners.get(event)?.forEach((handler) => handler(payload));
 }
 
-/* -------------------------------------------------------------------------- */
-/* Auto-save                                                                  */
-/* -------------------------------------------------------------------------- */
+/* Auto-save */
 
 function setSaveStatus(status) {
   state.saveStatus = status;
@@ -94,9 +86,7 @@ export async function flushSave() {
   await persist();
 }
 
-/* -------------------------------------------------------------------------- */
-/* Arvore e paginas                                                           */
-/* -------------------------------------------------------------------------- */
+/* Arvore e paginas */
 
 export async function loadTree() {
   const { nodes } = await api.getTree();
@@ -137,9 +127,7 @@ export function closePage() {
   emit('selection', []);
 }
 
-/* -------------------------------------------------------------------------- */
-/* Mutacoes + historico                                                       */
-/* -------------------------------------------------------------------------- */
+/* Mutacoes e historico */
 
 /**
  * Aplica uma mutacao no documento com suporte a undo.
@@ -183,8 +171,8 @@ export function undo() {
   if (!history.undo.length) return false;
   history.redo.push(clone(state.doc));
   state.doc = history.undo.pop();
-  // Sem este reset, um commit coalescido logo apos o undo NAO empilharia
-  // snapshot — e o proximo Ctrl+Z nao teria para onde voltar.
+  // Sem este reset, um commit agrupado logo depois do undo nao empilharia
+  // snapshot, e o Ctrl+Z seguinte nao teria para onde voltar.
   lastCommit = { key: null, at: 0 };
   pruneSelection();
   emit('doc', state.doc);
@@ -213,9 +201,7 @@ function pruneSelection() {
   state.selection = state.selection.filter((id) => ids.has(id));
 }
 
-/* -------------------------------------------------------------------------- */
-/* Helpers de elementos                                                       */
-/* -------------------------------------------------------------------------- */
+/* Helpers de elementos */
 
 export function getElements() {
   return state.doc?.elements || [];
@@ -272,9 +258,7 @@ export function reorder(ids, direction) {
   });
 }
 
-/* -------------------------------------------------------------------------- */
-/* Selecao                                                                    */
-/* -------------------------------------------------------------------------- */
+/* Selecao */
 
 export function setSelection(ids) {
   state.selection = [...new Set(ids)];
@@ -292,20 +276,16 @@ export function getSelectedElements() {
   return state.selection.map(getElement).filter(Boolean);
 }
 
-/* -------------------------------------------------------------------------- */
-/* Viewport                                                                   */
-/* -------------------------------------------------------------------------- */
+/* Viewport */
 
-/** Viewport nao entra no historico — zoom/pan nao devem ser "desfeitos". */
+/** Viewport fica fora do historico: zoom e pan nao devem ser desfeitos. */
 export function saveViewport(viewport) {
   if (!state.doc) return;
   state.doc.viewport = viewport;
   scheduleSave();
 }
 
-/* -------------------------------------------------------------------------- */
-/* Grupos de parametros                                                       */
-/* -------------------------------------------------------------------------- */
+/* Grupos de parametros */
 
 export async function loadTemplates() {
   const { groups } = await api.getTemplates();
@@ -324,9 +304,7 @@ export function newTemplateGroup(name) {
   return { id: uid('grp'), name, scope: 'eventParams', description: '', params: [] };
 }
 
-/* -------------------------------------------------------------------------- */
-/* Navegacao entre abas                                                       */
-/* -------------------------------------------------------------------------- */
+/* Navegacao entre abas */
 
 export function setView(view) {
   state.view = view;

@@ -1,11 +1,9 @@
-/**
- * papyrus.js
- * ---------------------------------------------------------------------------
+/*
  * Regras do formato de arquivo do Papyrus.
  *
- * Um "documento papyrus" e um JSON que representa UMA pagina de canvas.
- * A regra de seguranca central: so renderizamos um arquivo se a raiz do JSON
- * contiver a chave `"json-type": "papyrus"`. Qualquer outro JSON e ignorado.
+ * Um documento papyrus e um JSON que representa uma pagina de canvas. A regra
+ * de seguranca que sustenta o resto: so renderizamos um arquivo se a raiz do
+ * JSON tiver a chave `"json-type": "papyrus"`. Todo o resto e ignorado.
  */
 
 import fs from 'node:fs/promises';
@@ -15,6 +13,9 @@ import { PAPYRUS_ROOT, SYSTEM_DIRS, toRelative } from './paths.js';
 
 export const PAPYRUS_TYPE = 'papyrus';
 export const SCHEMA_VERSION = 1;
+
+/** Parametro que identifica cada evento; precisa ser unico no workspace inteiro. */
+export const EVENT_ID_PARAM = 'event_id';
 
 /** Verifica a assinatura obrigatoria do arquivo. */
 export function isPapyrusDoc(doc) {
@@ -64,14 +65,16 @@ export async function writeDoc(absolutePath, doc) {
 }
 
 /**
- * Varre recursivamente a pasta papyrus montando a arvore de navegacao.
- * Arquivos .json que NAO passam na validacao entram na arvore como `invalid: true`
- * (aparecem esmaecidos na UI) — assim o usuario entende por que nao abrem.
+ * Varre a pasta papyrus recursivamente e monta a arvore de navegacao.
+ *
+ * Arquivo .json que nao passa na validacao entra na arvore com `invalid: true`
+ * e aparece esmaecido na UI, para ficar claro por que ele nao abre.
  *
  * @param {string} absoluteDir
  * @param {number} depth protecao contra estruturas muito profundas
+ * @param {Record<string,string>} colors cores de pasta (ver lib/folder-colors.js)
  */
-export async function scanTree(absoluteDir = PAPYRUS_ROOT, depth = 0) {
+export async function scanTree(absoluteDir = PAPYRUS_ROOT, depth = 0, colors = {}) {
   const entries = await fs.readdir(absoluteDir, { withFileTypes: true });
   const nodes = [];
 
@@ -88,7 +91,8 @@ export async function scanTree(absoluteDir = PAPYRUS_ROOT, depth = 0) {
         type: 'folder',
         name: entry.name,
         path: relative,
-        children: depth < 12 ? await scanTree(absolute, depth + 1) : [],
+        color: colors[relative] || null,
+        children: depth < 12 ? await scanTree(absolute, depth + 1, colors) : [],
       });
       continue;
     }
@@ -108,7 +112,7 @@ export async function scanTree(absoluteDir = PAPYRUS_ROOT, depth = 0) {
     });
   }
 
-  // Pastas primeiro, depois paginas — ambas em ordem alfabetica natural.
+  // Pastas primeiro, depois paginas, as duas em ordem alfabetica natural.
   return nodes.sort((a, b) => {
     if (a.type !== b.type) return a.type === 'folder' ? -1 : 1;
     return a.name.localeCompare(b.name, 'pt-BR', { numeric: true });
@@ -143,8 +147,8 @@ export async function collectAllDocs(absoluteDir = PAPYRUS_ROOT, depth = 0, acc 
 }
 
 /**
- * Extrai apenas as regras de negocio de um documento (sem coordenadas de canvas).
- * Base do exportador "Trust Factor" e do Dicionario Global.
+ * Extrai so as regras de negocio de um documento, sem as coordenadas do canvas.
+ * E a base do exportador de eventos e do Dicionario Global.
  */
 export function extractEvents(doc) {
   if (!Array.isArray(doc.elements)) return [];

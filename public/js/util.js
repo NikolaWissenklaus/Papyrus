@@ -1,7 +1,5 @@
-/**
- * util.js
- * ---------------------------------------------------------------------------
- * Utilitarios puros, sem dependencia de DOM especifico da aplicacao.
+/*
+ * Utilitarios puros. Nada aqui conhece o DOM da aplicacao.
  */
 
 /** Identificador curto e legivel para elementos do canvas. */

@@ -1,6 +1,6 @@
 {
   "name": "papyrus",
-  "version": "1.0.0",
+  "version": "2.5.0",
   "description": "Papyrus - Planejamento visual de mensuracao e mapas de coleta para GA4",
   "type": "module",
   "private": true,

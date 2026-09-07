@@ -1,12 +1,10 @@
-/**
- * panels/templates.js
- * ---------------------------------------------------------------------------
+/*
  * Aba "Grupos de Parametros".
  *
- * Um grupo e um conjunto nomeado de parametros recorrentes (ex.: "Contexto de
- * Pagina", "Identificacao do Usuario", "Dados do Produto"). Cards de evento
- * importam grupos inteiros, garantindo que o mesmo parametro tenha sempre o
- * mesmo nome e o mesmo tipo em todo o workspace.
+ * Um grupo e um conjunto nomeado de parametros que se repetem, do tipo
+ * "Contexto de Pagina", "Identificacao do Usuario" ou "Dados do Produto". O
+ * card de evento importa o grupo inteiro, e e assim que o mesmo parametro
+ * mantem nome e tipo iguais no workspace todo.
  */
 
 import { state, loadTemplates, saveTemplates, newTemplateGroup, on } from '../store.js';
@@ -53,7 +51,7 @@ function render() {
         : `<div class="card" style="text-align:center;padding:56px 24px;color:var(--text-muted)">
              <h3 style="margin-bottom:6px">Nenhum grupo criado</h3>
              <p style="font-size:13px;margin:0 0 16px">
-               Comece por um conjunto que se repete em quase todo evento — contexto de página, por exemplo.
+               Comece por um conjunto que se repete em quase todo evento, como contexto de página.
              </p>
              <button class="btn btn--primary" id="new-group-empty">Criar primeiro grupo</button>
            </div>`
@@ -100,9 +98,7 @@ const groupCard = (g) => `
     </div>
   </div>`;
 
-/* -------------------------------------------------------------------------- */
-/* Operacoes                                                                  */
-/* -------------------------------------------------------------------------- */
+/* Operacoes */
 
 async function createGroup() {
   const name = await prompt({
@@ -145,8 +141,8 @@ async function deleteGroup(id) {
 }
 
 /**
- * Editor do grupo. Trabalha sobre uma copia local e so persiste ao salvar —
- * assim o usuario pode cancelar sem sujar o arquivo.
+ * Editor do grupo. Trabalha sobre uma copia local e so grava ao salvar, entao
+ * dar cancelar nao suja o arquivo.
  */
 async function editGroup(id) {
   const original = state.templates.find((g) => g.id === id);
@@ -254,7 +250,7 @@ async function editGroup(id) {
         draft.description = modal.querySelector('#g-desc').value.trim();
         draft.params = draft.params.filter((p) => p.name?.trim());
 
-        // Nomes duplicados dentro do proprio grupo tornariam a importacao invalida.
+        // Nome repetido dentro do proprio grupo deixaria a importacao invalida.
         const names = draft.params.map((p) => p.name);
         const duplicated = names.filter((n, i) => names.indexOf(n) !== i);
         if (duplicated.length) {

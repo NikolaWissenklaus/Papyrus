@@ -1,7 +1,5 @@
-/**
- * main.js
- * ---------------------------------------------------------------------------
- * Bootstrap da aplicacao: liga o store, o canvas, os paineis e o teclado.
+/*
+ * Bootstrap da aplicacao. Liga store, canvas, paineis e teclado.
  */
 
 import {
@@ -18,15 +16,13 @@ import { initInspector } from './panels/inspector.js';
 import { initTemplates } from './panels/templates.js';
 import { initDictionary } from './panels/dictionary.js';
 import { initSettings } from './panels/settings.js';
-import { exportPagePNG, exportTrustFactor } from './panels/exporters.js';
+import { takeCanvasPhoto, exportEvents } from './panels/exporters.js';
 import { validateDoc } from './quality/validation.js';
 import { toast } from './ui/toast.js';
 import { openModal } from './ui/modal.js';
 import { esc, debounce } from './util.js';
 
-/* ========================================================================== */
-/* Inicializacao                                                              */
-/* ========================================================================== */
+/* Inicializacao */
 
 async function boot() {
   initStage(document.getElementById('stage-host'));
@@ -61,16 +57,14 @@ async function boot() {
       applyViewport(doc.viewport);
     }
   });
-  // Validar a cada tecla digitada disputaria o frame com o canvas; 250ms
-  // depois da última alteração é imperceptível e muito mais leve.
+  // Validar a cada tecla digitada disputaria o frame com o canvas. Rodar 250ms
+  // depois da ultima alteracao passa despercebido e pesa bem menos.
   const scheduleValidation = debounce(refreshValidation, 250);
   on('doc', () => scheduleValidation());
   on('error', (err) => toast.error(err.message));
 }
 
-/* ========================================================================== */
-/* Abas principais                                                            */
-/* ========================================================================== */
+/* Abas principais */
 
 function bindTabs() {
   document.querySelectorAll('.topbar .tab').forEach((tab) => {
@@ -83,9 +77,7 @@ function bindTabs() {
   });
 }
 
-/* ========================================================================== */
-/* Toolpad                                                                    */
-/* ========================================================================== */
+/* Toolpad */
 
 function bindToolpad() {
   document.querySelectorAll('.tool').forEach((btn) => {
@@ -103,19 +95,15 @@ function bindToolpad() {
   });
 }
 
-/* ========================================================================== */
-/* Topbar                                                                     */
-/* ========================================================================== */
+/* Topbar */
 
 function bindTopbar() {
-  document.getElementById('btn-export-png').onclick = () => exportPagePNG();
-  document.getElementById('btn-export-trust').onclick = () => exportTrustFactor();
+  document.getElementById('btn-photo').onclick = () => takeCanvasPhoto();
+  document.getElementById('btn-export').onclick = () => exportEvents();
   document.getElementById('btn-help').onclick = () => showShortcuts();
 }
 
-/* ========================================================================== */
-/* Painéis recolhíveis                                                        */
-/* ========================================================================== */
+/* Painéis recolhíveis */
 
 const PANELS = {
   sidebar: { class: 'sidebar-collapsed', button: 'btn-toggle-sidebar', storage: 'papyrus.sidebar' },
@@ -135,17 +123,15 @@ export function togglePanel(name, force) {
 function bindPanelToggles() {
   for (const name of Object.keys(PANELS)) {
     document.getElementById(PANELS[name].button).onclick = () => togglePanel(name);
-    // Restaura o estado da última sessão.
+    // Restaura o estado da ultima sessao.
     if (localStorage.getItem(PANELS[name].storage) === '1') togglePanel(name, true);
   }
 
-  // Duplo clique num card de evento reabre o inspetor se estiver recolhido.
+  // Duplo clique em um card de evento reabre o inspetor, se ele estiver recolhido.
   window.addEventListener('papyrus:focus-inspector', () => togglePanel('inspector', false));
 }
 
-/* ========================================================================== */
-/* Botões de undo/redo                                                        */
-/* ========================================================================== */
+/* Botões de undo/redo */
 
 function bindHistoryButtons() {
   const undoBtn = document.getElementById('btn-undo');
@@ -173,15 +159,13 @@ function bindSaveStatus() {
     node.textContent = labels[status] || '—';
   });
 
-  // Garante que nada se perca ao fechar a aba.
+  // Garante que nada se perca quando a aba e fechada.
   window.addEventListener('beforeunload', () => {
     if (state.saveStatus === 'saving') flushSave();
   });
 }
 
-/* ========================================================================== */
-/* Zoom                                                                       */
-/* ========================================================================== */
+/* Zoom */
 
 function bindZoom() {
   document.getElementById('zoom-in').onclick = () => zoomBy(1.2);
@@ -194,9 +178,7 @@ function bindZoom() {
   });
 }
 
-/* ========================================================================== */
-/* Painel de validacao                                                        */
-/* ========================================================================== */
+/* Painel de validacao */
 
 function bindValidationPanel() {
   const toggle = document.getElementById('validation-toggle');
@@ -250,17 +232,13 @@ function refreshValidation() {
   });
 }
 
-/* ========================================================================== */
-/* Estado vazio                                                               */
-/* ========================================================================== */
+/* Estado vazio */
 
 function updateEmptyState() {
   document.getElementById('canvas-empty').classList.toggle('is-visible', !state.doc);
 }
 
-/* ========================================================================== */
-/* Clipboard                                                                  */
-/* ========================================================================== */
+/* Clipboard */
 
 function bindClipboard() {
   document.addEventListener('paste', (e) => {
@@ -274,9 +252,7 @@ function bindClipboard() {
   });
 }
 
-/* ========================================================================== */
-/* Atalhos de teclado                                                         */
-/* ========================================================================== */
+/* Atalhos de teclado */
 
 const TOOL_KEYS = {
   v: 'select', h: 'hand', e: 'event', n: 'sticky',
@@ -288,7 +264,7 @@ function bindKeyboard() {
     if (isTyping(e)) return;
     const mod = e.ctrlKey || e.metaKey;
 
-    // --- Com modificador ---
+    // Com modificador
     if (mod) {
       switch (e.key.toLowerCase()) {
         case 'z':
@@ -331,7 +307,7 @@ function bindKeyboard() {
 
     if (state.view !== 'canvas') return;
 
-    // --- Sem modificador ---
+    // Sem modificador
     if (e.key === 'Delete' || e.key === 'Backspace') {
       if (state.selection.length) {
         e.preventDefault();
@@ -382,9 +358,7 @@ function bindKeyboard() {
   });
 }
 
-/* ========================================================================== */
-/* Ajuda                                                                      */
-/* ========================================================================== */
+/* Ajuda */
 
 const SHORTCUTS = [
   ['Selecionar', 'V'], ['Navegar (pan)', 'H ou Espaço'],
@@ -415,12 +389,10 @@ function showShortcuts() {
     </div>
     <div class="field__hint" style="margin-top:18px">
       <strong>Fluxo recomendado:</strong> cole o print da tela (Ctrl+V) → marque os pontos de interação com pins (P)
-      → crie os cards de evento (E) → conecte pin e card (C) → valide no rodapé → exporte o Trust Factor.
+      → crie os cards de evento (E) → conecte pin e card (C) → valide no rodapé → exporte o JSON.
     </div>`,
     footer: `<button class="btn btn--primary" data-close="ok">Fechar</button>`,
   });
 }
-
-/* ========================================================================== */
 
 boot();

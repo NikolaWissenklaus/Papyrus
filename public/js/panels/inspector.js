@@ -1,16 +1,15 @@
-/**
- * panels/inspector.js
- * ---------------------------------------------------------------------------
- * Painel lateral direito: edicao das propriedades do elemento selecionado.
+/*
+ * Painel lateral direito, onde as propriedades do elemento selecionado sao
+ * editadas.
  *
- * O Card de Evento e editado aqui (e nao dentro do canvas) por uma razao de
- * usabilidade: sao ~20 campos + duas tabelas de parametros. Manter isso legivel
- * dentro de um retangulo desenhado seria hostil. O card no canvas funciona como
- * "resumo executivo"; o inspetor e a ficha completa.
+ * O card de evento e editado aqui, e nao dentro do canvas, por usabilidade: sao
+ * uns 20 campos mais duas tabelas de parametros, e nada disso caberia de forma
+ * legivel dentro de um retangulo desenhado. No canvas o card e o resumo; o
+ * inspetor e a ficha completa.
  *
- * Anti-padrao evitado: re-renderizar o painel a cada tecla digitada faria o
- * input perder o foco. Por isso alteracoes originadas AQUI marcam `selfUpdate`
- * e nao disparam re-render do proprio painel — apenas do canvas.
+ * Cuidado importante: re-renderizar o painel a cada tecla digitada faz o input
+ * perder o foco. Por isso alteracao que nasce aqui marca `selfUpdate` e
+ * re-renderiza so o canvas, nunca o proprio painel.
  */
 
 import {
@@ -19,7 +18,7 @@ import {
 import {
   EVENT_TYPES, EVENT_TYPE_MAP, PARAM_TYPES, PLATFORMS, SHAPE_COLORS, STICKY_COLORS,
 } from '../constants.js';
-import { createParam, defaultItemParams } from '../models.js';
+import { createParam, defaultItemParams, isEventIdParam } from '../models.js';
 import { esc, uid, toSnakeCase } from '../util.js';
 import { validateDoc } from '../quality/validation.js';
 import { buildDataLayerSnippet, buildGtagSnippet, buildJsonSchema } from '../quality/snippet.js';
@@ -35,8 +34,8 @@ const collapsed = new Set(['userParams', 'agile']);
 export function initInspector() {
   host = document.getElementById('inspector');
 
-  // Commits externos em rajada (nudge com seta pressionada, undo repetido)
-  // geram no maximo UM rebuild do painel por frame.
+  // Commit externo em rajada (seta do teclado segurada, undo repetido) gera no
+  // maximo um rebuild do painel por frame.
   let renderQueued = false;
   const scheduleRender = () => {
     if (renderQueued) return;
@@ -57,8 +56,8 @@ export function initInspector() {
   });
 
   window.addEventListener('papyrus:focus-inspector', () => {
-    // O main.js reabre o inspetor recolhido neste mesmo evento; o foco espera
-    // um frame para o painel voltar a ficar visível (elemento oculto não foca).
+    // O main.js reabre o inspetor recolhido neste mesmo evento. O foco espera um
+    // frame ate o painel voltar a ficar visivel, porque elemento oculto nao foca.
     requestAnimationFrame(() => host.querySelector('[data-field="name"]')?.focus());
   });
 }
@@ -77,9 +76,7 @@ function mutateEvent(id, patch, coalesceKey) {
   }, coalesceKey);
 }
 
-/* ========================================================================== */
-/* Render principal                                                           */
-/* ========================================================================== */
+/* Render principal */
 
 export function renderInspector() {
   if (!host) return;
@@ -112,9 +109,7 @@ export function renderInspector() {
   }
 }
 
-/* ========================================================================== */
-/* Blocos reutilizaveis                                                       */
-/* ========================================================================== */
+/* Blocos reutilizaveis */
 
 const header = (type, title, stripe) => `
   <div class="inspector__head">
@@ -163,16 +158,18 @@ const swatches = (colors, current, fieldName) => `
       .join('')}
   </div>`;
 
-/* ========================================================================== */
-/* Tabela de parametros                                                       */
-/* ========================================================================== */
+/* Tabela de parametros */
 
 function paramTable(el, scope) {
   const params = el.data?.[scope] || [];
 
   const rows = params
-    .map(
-      (p) => `
+    .map((p) => {
+      // O event_id nasce preenchido e e editavel como qualquer outro parametro.
+      // A unicidade e cobrada pelo validador, nao travando o campo.
+      const isEventId = isEventIdParam(scope, p);
+
+      return `
       <div class="param-row" data-param="${p.id}">
         <input class="input input--mono" data-pfield="name" value="${esc(p.name)}" placeholder="nome_do_parametro" autocomplete="off" />
         <select class="select" data-pfield="type">
@@ -183,10 +180,10 @@ function paramTable(el, scope) {
         <button class="param-row__del" data-pfield="delete" title="Remover parâmetro">×</button>
         <div class="param-row__extra">
           <input class="input" data-pfield="example" value="${esc(p.example ?? '')}"
-                 placeholder="valor de exemplo — usado no snippet e no QA" autocomplete="off" />
+                 placeholder="${isEventId ? 'identificador único deste evento' : 'valor de exemplo, usado no snippet e no QA'}" autocomplete="off" />
         </div>
-      </div>`,
-    )
+      </div>`;
+    })
     .join('');
 
   return `
@@ -202,9 +199,7 @@ function paramTable(el, scope) {
     </div>`;
 }
 
-/* ========================================================================== */
-/* Card de Evento                                                             */
-/* ========================================================================== */
+/* Card de Evento */
 
 function renderEventCard(el) {
   const d = el.data || {};
@@ -252,7 +247,7 @@ function renderEventCard(el) {
          </div>`,
       ) +
       field('Gatilho (trigger)', textarea('trigger', d.trigger, 'Ex.: clique no botão #btn-comprar da PDP'),
-        'Descreva a condição exata de disparo — é o que o time de GTM vai implementar.'),
+        'Descreva a condição exata de disparo. É o que o time de GTM vai implementar.'),
     )}
 
     ${section(
@@ -282,7 +277,7 @@ function renderEventCard(el) {
 
     ${
       d.eventType === 'ecommerce'
-        ? section('itemParams', 'Módulo Ecommerce — items[]', paramTable(el, 'itemParams'), String(d.itemParams?.length || 0))
+        ? section('itemParams', 'Módulo Ecommerce: items[]', paramTable(el, 'itemParams'), String(d.itemParams?.length || 0))
         : ''
     }
 
@@ -308,12 +303,12 @@ function renderEventCard(el) {
 }
 
 function bindEventCardFields(el) {
-  // IMPORTANTE: apos qualquer commit() o documento e clonado — `el` vira uma
-  // referencia OBSOLETA. Handlers que precisam LER o estado atual devem sempre
-  // buscar o elemento vivo, senao dois cliques seguidos perdem a 1ª alteracao.
+  // Depois de qualquer commit() o documento e clonado e `el` passa a ser uma
+  // referencia velha. Handler que precisa ler o estado atual tem de buscar o
+  // elemento vivo, senao dois cliques seguidos perdem a primeira alteracao.
   const live = () => getElement(el.id) || el;
 
-  // --- Campos de texto simples ---
+  // Campos de texto simples
   host.querySelectorAll('[data-field]').forEach((node) => {
     const fieldName = node.dataset.field;
 
@@ -321,7 +316,7 @@ function bindEventCardFields(el) {
       node.onchange = () => {
         const value = node.value;
         if (fieldName === 'eventType') {
-          // Ao virar Ecommerce, injeta automaticamente o bloco items[] do GA4.
+          // Ao virar Ecommerce, o bloco items[] do GA4 entra sozinho.
           const patch = { eventType: value };
           if (value === 'ecommerce' && !(live().data?.itemParams || []).length) {
             patch.itemParams = defaultItemParams();
@@ -353,7 +348,7 @@ function bindEventCardFields(el) {
     }
   });
 
-  // --- Plataformas (multi-seleção) ---
+  // Plataformas (multi-seleção)
   host.querySelectorAll('[data-platform-id]').forEach((btn) => {
     btn.onclick = () => {
       const id = btn.dataset.platformId;
@@ -364,7 +359,7 @@ function bindEventCardFields(el) {
     };
   });
 
-  // --- Tabelas de parâmetros ---
+  // Tabelas de parâmetros
   host.querySelectorAll('.params').forEach((table) => {
     const scope = table.dataset.scope;
 
@@ -422,7 +417,7 @@ function bindEventCardFields(el) {
     });
   });
 
-  // --- Ações de escopo ---
+  // Ações de escopo
   host.querySelectorAll('[data-action="add-param"]').forEach((btn) => {
     btn.onclick = () => {
       mutate((doc) => {
@@ -430,7 +425,7 @@ function bindEventCardFields(el) {
         if (target) target.data[btn.dataset.scope] = [...(target.data[btn.dataset.scope] || []), createParam()];
       });
       renderInspector();
-      // Foca o campo recém-criado para o usuário já sair digitando.
+      // Foca o campo recem-criado para a pessoa ja sair digitando.
       const rows = host.querySelectorAll(
         `.params[data-scope="${btn.dataset.scope}"] .param-row [data-pfield="name"]`,
       );
@@ -466,7 +461,7 @@ function bindEventCardFields(el) {
     btn.onclick = () => openGroupImporter(el, btn.dataset.scope);
   });
 
-  // --- Geradores de código ---
+  // Geradores de código
   host.querySelector('[data-action="snippet-datalayer"]')?.addEventListener('click', () =>
     showCode({
       title: 'dataLayer.push',
@@ -506,15 +501,13 @@ function bindEventCardFields(el) {
   });
 }
 
-/* ========================================================================== */
-/* Importador de Grupos de Parametros                                         */
-/* ========================================================================== */
+/* Importador de Grupos de Parametros */
 
-/**
- * Regra de negocio central: dois grupos nao podem trazer o mesmo nome de
- * parametro para o mesmo evento, e nenhum grupo pode colidir com um parametro
- * ja existente no card. O modal calcula os conflitos em tempo real e so libera
- * a importacao limpa.
+/*
+ * A regra aqui e simples e vale sempre: dois grupos nao podem trazer o mesmo
+ * nome de parametro para o mesmo evento, e nenhum grupo pode colidir com
+ * parametro que o card ja tem. O modal recalcula os conflitos em tempo real e
+ * so libera a importacao quando ela esta limpa.
  */
 async function openGroupImporter(el, scope) {
   const groups = state.templates || [];
@@ -537,7 +530,7 @@ async function openGroupImporter(el, scope) {
             <input type="checkbox" value="${g.id}" />
             <span style="flex:1">
               <strong>${esc(g.name)}</strong>
-              <span class="faint" style="font-size:12px"> — ${g.params.length} parâmetro(s)</span>
+              <span class="faint" style="font-size:12px"> · ${g.params.length} parâmetro(s)</span>
               ${g.description ? `<div class="field__hint">${esc(g.description)}</div>` : ''}
               <div class="group-card__params" style="margin-top:6px">
                 ${g.params.slice(0, 8).map((p) => `<span class="chip">${esc(p.name)}</span>`).join('')}
@@ -559,7 +552,7 @@ async function openGroupImporter(el, scope) {
       const cleanBtn = root.querySelector('#import-clean');
       const existing = new Set((el.data[scope] || []).map((p) => (p.name || '').trim()).filter(Boolean));
 
-      /** Recalcula conflitos a cada mudança de seleção. */
+      /** Recalcula os conflitos a cada mudanca de selecao. */
       function analyze() {
         const selectedIds = [...root.querySelectorAll('#group-picker input:checked')].map((i) => i.value);
         const selectedGroups = groups.filter((g) => selectedIds.includes(g.id));
@@ -588,11 +581,11 @@ async function openGroupImporter(el, scope) {
           box.innerHTML = `
             <div class="card" style="border-color:#FAD2CF;background:var(--danger-bg);padding:14px 16px">
               <strong style="color:var(--danger);font-size:13px">
-                ${conflicts.length} conflito(s) de nome — importação bloqueada
+                ${conflicts.length} conflito(s) de nome, importação bloqueada
               </strong>
               <div style="margin-top:8px;display:flex;flex-direction:column;gap:4px">
                 ${[...new Map(conflicts.map((c) => [c.name + c.reason, c])).values()]
-                  .map((c) => `<div style="font-size:12px"><code>${esc(c.name)}</code> (${esc(c.group)}) — ${esc(c.reason)}</div>`)
+                  .map((c) => `<div style="font-size:12px"><code>${esc(c.name)}</code> (${esc(c.group)}): ${esc(c.reason)}</div>`)
                   .join('')}
               </div>
             </div>`;
@@ -653,9 +646,7 @@ async function openGroupImporter(el, scope) {
   });
 }
 
-/* ========================================================================== */
-/* Demais elementos                                                           */
-/* ========================================================================== */
+/* Demais elementos */
 
 function renderSticky(el) {
   host.innerHTML = `
@@ -807,9 +798,7 @@ function renderMultiSelection(selected) {
   bindAlignment(selected);
 }
 
-/* ========================================================================== */
-/* Bindings compartilhados                                                    */
-/* ========================================================================== */
+/* Bindings compartilhados */
 
 function bindCommonActions(el) {
   host.querySelectorAll('.section__head').forEach((btn) => {
@@ -861,8 +850,8 @@ function bindSimpleFields(el, casts = {}) {
       node.onchange = () => apply(cast(node.value));
     } else {
       node.oninput = () => {
-        // Campos numericos vazios ou invalidos nao devem virar 0 — isso faria
-        // largura/altura colapsarem e o elemento "sumir" do canvas.
+        // Campo numerico vazio ou invalido nao pode virar 0: largura e altura
+        // colapsariam e o elemento sumiria do canvas.
         if (node.type === 'number') {
           if (node.value.trim() === '' || Number.isNaN(Number(node.value))) return;
         }

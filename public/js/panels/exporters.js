@@ -1,16 +1,16 @@
-/**
- * panels/exporters.js
- * ---------------------------------------------------------------------------
- * Exportacao visual (PNG/JPG de alta resolucao) e exportacao "Trust Factor".
+/*
+ * As duas saidas da ferramenta, com destinos propositalmente diferentes.
  *
- * Trust Factor: JSON que contem SOMENTE regra de negocio — nome da pagina como
- * chave raiz e um array de eventos tipados como valor. Nenhuma coordenada, cor
- * ou elemento visual entra no arquivo. E o artefato que vai para o repositorio
- * do time de engenharia e serve de contrato de coleta.
+ * "Exportar" gera um JSON so com regra de negocio: o nome da pagina como chave
+ * raiz e um array de eventos tipados como valor. Coordenada, cor e elemento
+ * visual ficam de fora. O escopo e sempre o workspace inteiro, nunca uma pagina
+ * isolada, porque o arquivo precisa valer como retrato completo da coleta. Ele
+ * vai direto para o bucket do Google Cloud Storage, ja que o contrato de coleta
+ * precisa de um endereco unico. Download solto na maquina de quem exportou vira
+ * copia divergente em uma semana.
  *
- * Destinos suportados: download pelo navegador e bucket do Google Cloud
- * Storage (quando configurado — ver server/lib/gcs.js). Não existe gravação
- * em pasta do disco: a UI não expõe nada do filesystem do servidor.
+ * "Tirar foto" gera PNG ou JPG do canvas, sempre pelo navegador. E material de
+ * apresentacao e de conversa: tem vida curta e nao precisa ser versionado.
  */
 
 import { api } from '../api.js';
@@ -20,7 +20,11 @@ import { openModal } from '../ui/modal.js';
 import { toast } from '../ui/toast.js';
 import { exportPNG } from '../canvas/stage.js';
 import { validateDoc } from '../quality/validation.js';
+import { EVENT_ID_PARAM } from '../models.js';
 import { getExportDefaults } from './settings.js';
+
+/** Nome sugerido do arquivo. O export cobre o workspace inteiro, sempre. */
+const DEFAULT_FILENAME = 'papyrus';
 
 /** Consulta o status do GCS sem quebrar a UI se o servidor falhar. */
 async function safeGcsStatus() {
@@ -31,58 +35,38 @@ async function safeGcsStatus() {
   }
 }
 
-/** Bloco de opcao "Google Cloud Storage" reutilizado nos dois exportadores. */
-function gcsOptionHtml(status, inputName) {
-  const disabled = status.ready ? '' : 'disabled';
-  const hint = status.ready
-    ? `Bucket: <code>${esc(status.bucket)}</code>${status.prefix ? ` · prefixo <code>${esc(status.prefix)}</code>` : ''}`
-    : esc(status.reason || 'Não configurado.');
+/* Foto do canvas (PNG / JPG) */
 
-  return `
-    <label class="check" style="align-items:flex-start">
-      <input type="radio" name="${inputName}" value="gcs" ${disabled} style="margin-top:2px" />
-      <span>
-        Google Cloud Storage ${status.ready ? '' : '<span class="chip chip--warn" style="margin-left:4px">não configurado</span>'}
-        <div class="field__hint" style="margin-top:2px">${hint}</div>
-      </span>
-    </label>`;
-}
-
-/* -------------------------------------------------------------------------- */
-/* PNG / JPG                                                                  */
-/* -------------------------------------------------------------------------- */
-
-export async function exportPagePNG() {
+export async function takeCanvasPhoto() {
   if (!state.doc) {
-    toast.error('Abra uma página antes de exportar.');
+    toast.error('Abra uma página antes de tirar a foto.');
     return;
   }
 
-  const gcs = await safeGcsStatus();
   const hasSelection = state.selection.length > 0;
 
-  // Pré-preenche com os padrões definidos na aba Configurações.
+  // Pre-preenche com os padroes definidos na aba Configuracoes.
   const def = getExportDefaults();
   const sel = (value, current) => (String(value) === String(current) ? ' selected' : '');
 
   const options = await openModal({
-    title: 'Exportar imagem do canvas',
-    subtitle: 'A imagem é recortada no conteúdo — sem áreas vazias sobrando.',
+    title: 'Tirar foto do canvas',
+    subtitle: 'A imagem é recortada no conteúdo, sem áreas vazias sobrando.',
     body: `
       <div class="grid-2">
         <div class="field">
           <label class="field__label">Resolução</label>
           <select class="select" id="png-scale">
-            <option value="2"${sel(2, def.scale)}>2× — apresentação</option>
-            <option value="3"${sel(3, def.scale)}>3× — alta resolução (recomendado)</option>
-            <option value="4"${sel(4, def.scale)}>4× — impressão</option>
+            <option value="2"${sel(2, def.scale)}>2× (apresentação)</option>
+            <option value="3"${sel(3, def.scale)}>3× (alta resolução, recomendado)</option>
+            <option value="4"${sel(4, def.scale)}>4× (impressão)</option>
           </select>
         </div>
         <div class="field">
           <label class="field__label">Formato</label>
           <select class="select" id="png-format">
-            <option value="png"${sel('png', def.format)}>PNG — sem perdas</option>
-            <option value="jpeg"${sel('jpeg', def.format)}>JPG — arquivo menor</option>
+            <option value="png"${sel('png', def.format)}>PNG (sem perdas)</option>
+            <option value="jpeg"${sel('jpeg', def.format)}>JPG (arquivo menor)</option>
           </select>
         </div>
       </div>
@@ -106,21 +90,17 @@ export async function exportPagePNG() {
                Exportar apenas a seleção atual (${state.selection.length} elemento(s))</label>`
           : ''
       }
-      <div class="field" style="margin-top:10px">
-        <label class="field__label">Destino</label>
-        <label class="check"><input type="radio" name="png-dest" value="download" checked /> Download pelo navegador</label>
-        ${gcsOptionHtml(gcs, 'png-dest')}
-      </div>`,
+      <div class="field__hint" style="margin-top:10px">A foto é baixada pelo navegador.</div>`,
     footer: `
       <button class="btn btn--ghost" data-close="null">Cancelar</button>
-      <button class="btn btn--primary" id="png-go">Exportar</button>`,
-    // Os valores precisam ser lidos ANTES de fechar o modal — depois do close()
-    // o DOM do dialogo ja nao existe mais.
+      <button class="btn btn--primary" id="png-go">Tirar foto</button>`,
+    // Os valores tem de ser lidos antes de fechar o modal: depois do close() o
+    // DOM do dialogo ja nao existe.
     onMount: (modal, close) => {
       const formatSelect = modal.querySelector('#png-format');
       const bgSelect = modal.querySelector('#png-bg');
 
-      // JPG nao tem canal alfa — fundo transparente viraria preto.
+      // JPG nao tem canal alfa, e fundo transparente sairia preto.
       formatSelect.onchange = () => {
         const transparentOption = bgSelect.querySelector('option[value="transparent"]');
         transparentOption.disabled = formatSelect.value === 'jpeg';
@@ -128,7 +108,7 @@ export async function exportPagePNG() {
           bgSelect.value = '#FFFFFF';
         }
       };
-      // Aplica a regra tambem ao estado inicial (padroes podem vir como JPG).
+      // Vale tambem para o estado inicial, ja que o padrao pode vir como JPG.
       formatSelect.onchange();
 
       modal.querySelector('#png-go').onclick = () =>
@@ -138,7 +118,6 @@ export async function exportPagePNG() {
           background: bgSelect.value,
           padding: Number(modal.querySelector('#png-pad').value) || 0,
           onlySelection: Boolean(modal.querySelector('#png-selection')?.checked),
-          destination: modal.querySelector('input[name="png-dest"]:checked')?.value || 'download',
         });
     },
   });
@@ -157,78 +136,142 @@ export async function exportPagePNG() {
   });
   if (!dataUrl) return;
 
-  const ext = isJpeg ? 'jpg' : 'png';
-  const filename = `${sanitize(state.doc.name)}-${options.scale}x.${ext}`;
-
-  if (options.destination === 'gcs') {
-    try {
-      const base64 = dataUrl.slice(dataUrl.indexOf(',') + 1);
-      const { gcs: uploaded } = await api.exportGcs({
-        filename,
-        contentType: isJpeg ? 'image/jpeg' : 'image/png',
-        dataBase64: base64,
-      });
-      toast.ok(`Imagem publicada em ${uploaded.gsUri}`);
-    } catch (err) {
-      toast.error(err.message);
-    }
-    return;
-  }
-
+  const filename = `${sanitize(state.doc.name)}-${options.scale}x.${isJpeg ? 'jpg' : 'png'}`;
   const blob = await (await fetch(dataUrl)).blob();
   downloadBlob(blob, filename);
-  toast.ok('Imagem exportada.');
+  toast.ok('Foto salva.');
 }
 
-/* -------------------------------------------------------------------------- */
-/* Trust Factor                                                               */
-/* -------------------------------------------------------------------------- */
+/* Exportar: JSON de eventos para o Google Cloud Storage */
+
+/** Caminho de toda pagina valida da arvore, em profundidade. */
+function allPagePaths(nodes = state.tree || [], out = []) {
+  for (const node of nodes) {
+    if (node.type === 'folder') allPagePaths(node.children || [], out);
+    else if (!node.invalid) out.push(node.path);
+  }
+  return out;
+}
+
+/*
+ * Audita o workspace inteiro antes de liberar o export.
+ *
+ * O validador do rodape roda so na pagina aberta, e o arquivo exportado cobre
+ * todas. Entao aqui as paginas sao lidas do disco e validadas uma a uma, e no
+ * fim vem a checagem que nenhuma delas conseguiria fazer sozinha: event_id
+ * repetido entre paginas diferentes.
+ *
+ * Bloqueia por erro, nao por aviso. Aviso e coisa de mapa em andamento (sem
+ * squad, sem gatilho descrito) e travar por isso deixaria o export inalcancavel.
+ */
+async function auditWorkspace() {
+  const docs = await Promise.all(
+    allPagePaths().map(async (path) => {
+      const { doc } = await api.readPage(path);
+      return { path, name: doc?.name || path, doc };
+    }),
+  );
+
+  const blockers = [];
+
+  for (const { name, doc } of docs) {
+    for (const issue of validateDoc(doc).issues) {
+      if (issue.level !== 'error') continue;
+      blockers.push({ page: name, where: issue.where, message: issue.message });
+    }
+  }
+
+  const byEventId = new Map();
+  for (const { name, doc } of docs) {
+    for (const el of doc?.elements || []) {
+      if (el.type !== 'event') continue;
+      const id = ((el.data?.eventParams || []).find((p) => p.name === EVENT_ID_PARAM)?.example || '').trim();
+      if (!id) continue;
+      if (!byEventId.has(id)) byEventId.set(id, []);
+      byEventId.get(id).push({ page: name, event: el.data?.name || '(sem nome)' });
+    }
+  }
+
+  for (const [id, uses] of byEventId) {
+    // Colisao dentro de uma pagina so o validador ja apontou acima.
+    const pages = new Set(uses.map((u) => u.page));
+    if (uses.length < 2 || pages.size < 2) continue;
+    blockers.push({
+      page: [...pages].join(', '),
+      where: uses.map((u) => u.event).join(', '),
+      message: `event_id "${id}" repetido em mais de uma página.`,
+    });
+  }
+
+  return blockers;
+}
 
 /**
- * @param {string[]|null} presetPaths quando informado, exporta exatamente essas paginas
+ * O escopo e sempre o workspace inteiro. Exportar uma pagina isolada produzia
+ * contratos parciais circulando em paralelo, cada um dizendo uma coisa; o
+ * arquivo no bucket precisa valer como retrato completo da coleta.
  */
-export async function exportTrustFactor(presetPaths = null) {
+export async function exportEvents() {
   await flushSave();
 
-  // Aviso preventivo: exportar um mapa com erros de nomenclatura vira retrabalho.
-  const issues = state.doc ? validateDoc(state.doc).counts : { error: 0, warn: 0 };
-  const gcs = await safeGcsStatus();
+  const [blockers, gcs] = await Promise.all([auditWorkspace(), safeGcsStatus()]);
+  const blocked = blockers.length > 0;
 
   const result = await openModal({
-    title: 'Exportar Trust Factor',
-    subtitle: 'JSON com as regras de negócio — sem coordenadas, cores ou elementos visuais.',
+    title: 'Exportar',
+    subtitle: 'JSON com as regras de negócio: sem coordenadas, cores ou elementos visuais.',
     wide: true,
     body: `
       ${
-        !presetPaths && issues.error
+        blocked
           ? `<div class="card" style="border-color:#FAD2CF;background:var(--danger-bg);margin-bottom:14px;padding:12px 16px">
-               <strong style="color:var(--danger);font-size:13px">${issues.error} erro(s) de validação na página atual</strong>
-               <div class="field__hint" style="margin-top:2px">Você ainda pode exportar, mas o contrato sairá com inconsistências.</div>
+               <strong style="color:var(--danger);font-size:13px">
+                 ${blockers.length} problema(s) impedem a exportação
+               </strong>
+               <div class="field__hint" style="margin:2px 0 10px">
+                 O arquivo é o contrato de coleta do workspace inteiro. Corrija os itens abaixo e tente de novo.
+               </div>
+               <div style="display:flex;flex-direction:column;gap:5px;max-height:190px;overflow:auto">
+                 ${blockers
+                   .map(
+                     (b) => `<div style="font-size:12px">
+                       <code>${esc(b.page)}</code>
+                       ${b.where ? `<span class="faint">· ${esc(b.where)}</span>` : ''}
+                       <div class="faint">${esc(b.message)}</div>
+                     </div>`,
+                   )
+                   .join('')}
+               </div>
              </div>`
           : ''
       }
 
-      ${
-        presetPaths
-          ? `<div class="field__hint">Exportando: <code>${presetPaths.map(esc).join(', ')}</code></div>`
-          : `<div class="field">
-               <label class="field__label">Escopo</label>
-               <label class="check"><input type="radio" name="scope" value="page" checked ${state.currentPath ? '' : 'disabled'} />
-                 Somente a página aberta ${state.currentPath ? `<span class="faint">(${esc(state.doc?.name || '')})</span>` : '<span class="faint">— nenhuma página aberta</span>'}</label>
-               <label class="check"><input type="radio" name="scope" value="workspace" ${state.currentPath ? '' : 'checked'} />
-                 Todo o workspace <span class="faint">(todas as páginas do papyrus)</span></label>
-             </div>`
-      }
+      <div class="field">
+        <label class="field__label">Escopo</label>
+        <div class="field__hint">
+          Todo o workspace: todas as páginas da pasta <code>papyrus</code>, e não apenas a que está aberta.
+        </div>
+      </div>
 
       <div class="field">
         <label class="field__label">Nome do arquivo</label>
-        <input class="input input--mono" id="tf-name" value="trust-factor-${sanitize(state.doc?.name || 'workspace')}" />
+        <input class="input input--mono" id="tf-name" value="${DEFAULT_FILENAME}" />
       </div>
 
       <div class="field">
         <label class="field__label">Destino</label>
-        <label class="check"><input type="radio" name="tf-dest" value="download" checked /> Download pelo navegador</label>
-        ${gcsOptionHtml(gcs, 'tf-dest')}
+        <div class="card" style="padding:12px 16px">
+          <strong style="font-size:13px">Google Cloud Storage</strong>
+          ${
+            gcs.ready
+              ? `<div class="field__hint" style="margin-top:2px">Bucket: <code>${esc(gcs.bucket)}</code>${
+                  gcs.prefix ? ` · prefixo <code>${esc(gcs.prefix)}</code>` : ''
+                }</div>`
+              : `<div class="field__hint" style="margin-top:2px;color:var(--warn)">${esc(
+                  gcs.reason || 'Não configurado.',
+                )}</div>`
+          }
+        </div>
       </div>
 
       <details style="margin-top:14px">
@@ -237,40 +280,21 @@ export async function exportTrustFactor(presetPaths = null) {
       </details>`,
     footer: `
       <button class="btn btn--ghost" data-close="null">Cancelar</button>
-      <button class="btn btn--primary" id="tf-go">Exportar</button>`,
+      <button class="btn btn--primary" id="tf-go" ${gcs.ready && !blocked ? '' : 'disabled'}>Exportar</button>`,
     onMount: (modal, close) => {
-      modal.querySelector('#tf-go').onclick = () => {
-        const destination = modal.querySelector('input[name="tf-dest"]:checked')?.value || 'download';
-        const scope = modal.querySelector('input[name="scope"]:checked')?.value || 'page';
-        close({
-          scope,
-          destination,
-          filename: modal.querySelector('#tf-name').value.trim() || 'trust-factor',
-        });
-      };
+      const nameInput = modal.querySelector('#tf-name');
+
+      modal.querySelector('#tf-go').onclick = () =>
+        close({ filename: nameInput.value.trim() || DEFAULT_FILENAME });
     },
   });
 
   if (!result) return;
 
-  const paths = presetPaths || (result.scope === 'page' && state.currentPath ? [state.currentPath] : null);
-
   try {
-    const response = await api.exportTrust({
-      paths,
-      filename: result.filename,
-      gcs: result.destination === 'gcs',
-    });
-
-    if (response.gcs) {
-      toast.ok(`Trust Factor publicado em ${response.gcs.gsUri}`);
-    } else {
-      downloadBlob(
-        new Blob([JSON.stringify(response.payload, null, 2)], { type: 'application/json' }),
-        `${sanitize(result.filename)}.json`,
-      );
-      toast.ok('Trust Factor exportado.');
-    }
+    // `paths: null` diz ao servidor para varrer o workspace inteiro.
+    const response = await api.exportEvents({ paths: null, filename: result.filename });
+    toast.ok(`Exportado para ${response.gcs.gsUri}`);
   } catch (err) {
     toast.error(err.message);
   }
@@ -286,7 +310,7 @@ const SAMPLE = `{
       "governance": { "squad": "Checkout", "owner": "…", "notes": "…" },
       "tracker": { "card_name": "…", "card_id": "ANA-1234", "url": "…" },
       "parameters": {
-        "event": [{ "name": "currency", "type": "string", "required": true }],
+        "event": [{ "name": "event_id", "type": "string", "required": true }],
         "user":  [{ "name": "user_id", "type": "string", "required": false }],
         "items": [{ "name": "item_id", "type": "string", "required": true }]
       }
@@ -297,7 +321,7 @@ const SAMPLE = `{
 const sanitize = (name) =>
   String(name || 'export')
     .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
+    .replace(/[^\x20-\x7E]/g, '')
     .replace(/[^a-zA-Z0-9-_.]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .toLowerCase() || 'export';

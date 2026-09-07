@@ -1,17 +1,16 @@
-/**
- * panels/settings.js
- * ---------------------------------------------------------------------------
- * Aba "Configurações".
+/*
+ * Aba "Configuracoes", dividida em dois blocos.
  *
- * Dois blocos:
- *  1. Exportação de imagem — padrões (resolução, formato, fundo, margem) que
- *     pré-preenchem o modal de exportação. Vivem no localStorage do navegador.
- *  2. Google Cloud Storage — bucket, prefixo, project id e service account
- *     colada como JSON em um campo mascarado (tipo senha). A chave privada
- *     nunca volta ao navegador — a API devolve apenas `hasCredential`.
+ * O primeiro guarda os padroes da foto do canvas (resolucao, formato, fundo e
+ * margem) que pre-preenchem o modal "Tirar foto". Eles ficam no localStorage do
+ * navegador.
  *
- * Por decisão de segurança, esta tela NÃO exibe nenhuma informação do servidor
- * (caminhos de pasta, sistema operacional, versão do runtime).
+ * O segundo cuida do Google Cloud Storage: bucket, prefixo, project id e a
+ * service account, colada como JSON em um campo mascarado. A chave privada
+ * nunca volta para o navegador; a API devolve so `hasCredential`.
+ *
+ * Por seguranca, a tela nao mostra nada sobre o servidor: nem caminho de pasta,
+ * nem sistema operacional, nem versao do runtime.
  */
 
 import { api } from '../api.js';
@@ -21,9 +20,7 @@ import { toast } from '../ui/toast.js';
 
 let root = null;
 
-/* -------------------------------------------------------------------------- */
-/* Padrões de exportação (localStorage)                                       */
-/* -------------------------------------------------------------------------- */
+/* Padroes de exportacao, guardados no localStorage */
 
 const EXPORT_DEFAULTS_KEY = 'papyrus.exportDefaults';
 
@@ -34,7 +31,7 @@ const BASE_EXPORT_DEFAULTS = {
   padding: 60,
 };
 
-/** Padrões atuais — consumidos pelo modal de exportação de imagem. */
+/** Padroes atuais, lidos pelo modal "Tirar foto". */
 export function getExportDefaults() {
   try {
     return { ...BASE_EXPORT_DEFAULTS, ...JSON.parse(localStorage.getItem(EXPORT_DEFAULTS_KEY) || '{}') };
@@ -49,9 +46,7 @@ function saveExportDefaults(patch) {
   return next;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Init / render                                                              */
-/* -------------------------------------------------------------------------- */
+/* Init / render */
 
 export function initSettings() {
   root = document.getElementById('settings-root');
@@ -92,9 +87,7 @@ async function render() {
   bindGcsCard(body, gcs);
 }
 
-/* -------------------------------------------------------------------------- */
-/* 1. Padrões de exportação de imagem                                         */
-/* -------------------------------------------------------------------------- */
+/* Padroes da foto do canvas */
 
 function exportCard() {
   const def = getExportDefaults();
@@ -103,24 +96,24 @@ function exportCard() {
 
   return `
     <div class="card">
-      <h3 style="font-size:16px;margin-bottom:4px">Exportação de imagem</h3>
+      <h3 style="font-size:16px;margin-bottom:4px">Foto do canvas</h3>
       <p class="field__hint" style="margin:0 0 16px">
-        Valores pré-selecionados ao abrir o exportador de PNG/JPG. Salvos automaticamente neste navegador.
+        Valores pré-selecionados ao abrir o modal "Tirar foto". Salvos automaticamente neste navegador.
       </p>
       <div class="grid-2" style="max-width:640px">
         <div class="field">
           <label class="field__label">Resolução padrão</label>
           <select class="select" data-export-pref="scale">
-            ${opt('2', '2× — apresentação', def.scale)}
-            ${opt('3', '3× — alta resolução', def.scale)}
-            ${opt('4', '4× — impressão', def.scale)}
+            ${opt('2', '2× (apresentação)', def.scale)}
+            ${opt('3', '3× (alta resolução)', def.scale)}
+            ${opt('4', '4× (impressão)', def.scale)}
           </select>
         </div>
         <div class="field">
           <label class="field__label">Formato padrão</label>
           <select class="select" data-export-pref="format">
-            ${opt('png', 'PNG — sem perdas', def.format)}
-            ${opt('jpeg', 'JPG — arquivo menor', def.format)}
+            ${opt('png', 'PNG (sem perdas)', def.format)}
+            ${opt('jpeg', 'JPG (arquivo menor)', def.format)}
           </select>
         </div>
         <div class="field">
@@ -150,13 +143,11 @@ function bindExportCard(body) {
   });
 }
 
-/* -------------------------------------------------------------------------- */
-/* 2. Google Cloud Storage                                                    */
-/* -------------------------------------------------------------------------- */
+/* Google Cloud Storage */
 
 function statusChip(status) {
   if (status.ready) return '<span class="chip chip--interaction">Pronto para publicar</span>';
-  if (status.configured) return '<span class="chip chip--warn">Configurado — pacote ausente</span>';
+  if (status.configured) return '<span class="chip chip--warn">Configurado, mas o pacote está ausente</span>';
   return '<span class="chip">Não configurado</span>';
 }
 
@@ -168,11 +159,11 @@ function gcsCard(gcs) {
   return `
     <div class="card">
       <div style="display:flex;align-items:center;gap:10px;margin-bottom:4px">
-        <h3 style="font-size:16px">Exportação — Google Cloud Storage</h3>
+        <h3 style="font-size:16px">Exportação para o Google Cloud Storage</h3>
         <span id="gcs-status-chip">${statusChip(status)}</span>
       </div>
       <p class="field__hint" style="margin:0 0 16px">
-        Publica o Trust Factor (JSON) e as imagens do canvas direto em um bucket.
+        Destino único do botão <strong>Exportar</strong>: o JSON de eventos vai direto para o bucket.
         ${status.ready ? '' : status.reason ? `<br /><strong>${esc(status.reason)}</strong>` : ''}
       </p>
 
@@ -241,13 +232,13 @@ function bindGcsCard(body, gcs) {
         bucket: value('#gcs-bucket'),
         prefix: value('#gcs-prefix'),
         projectId: value('#gcs-project'),
-        // A credencial só viaja quando um novo JSON foi colado; sem isso, a
-        // salva anteriormente é preservada no servidor.
+        // A credencial so viaja quando um JSON novo foi colado. Sem isso, a
+        // que ja estava salva continua valendo no servidor.
         ...(keyJson ? { keyJson } : {}),
       });
       toast.ok('Configuração do Storage salva.');
       body.querySelector('#gcs-status-chip').innerHTML = statusChip(saved.status);
-      // Re-renderiza para refletir o estado "credencial salva ✓".
+      // Re-renderiza para o estado passar a mostrar a credencial como salva.
       render();
     } catch (err) {
       toast.error(err.message);
@@ -257,8 +248,8 @@ function bindGcsCard(body, gcs) {
   body.querySelector('#gcs-test').onclick = async () => {
     testResult.textContent = 'Testando…';
     try {
-      // Testa o que está na tela, não só o que já foi salvo — assim dá para
-      // validar bucket e credencial antes de gravar a configuração.
+      // Testa o que esta na tela, e nao so o que ja foi salvo. Da para conferir
+      // bucket e credencial antes de gravar a configuracao.
       const keyJson = value('#gcs-keyjson');
       const result = await api.testGcs({
         bucket: value('#gcs-bucket'),
@@ -288,7 +279,7 @@ function bindGcsCard(body, gcs) {
     }
   });
 
-  // Dica proativa: salvar sem testar é o erro mais comum.
+  // Salvar sem testar e o erro mais comum, entao vale o aviso.
   if (!gcs.status.ready && gcs.status.configured) {
     testResult.textContent = gcs.status.reason || '';
   }

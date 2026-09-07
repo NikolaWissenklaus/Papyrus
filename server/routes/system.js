@@ -1,15 +1,11 @@
-/**
- * routes/system.js
- * ---------------------------------------------------------------------------
- * Modulos transversais:
- *  - Grupos de Parametros (templates reutilizaveis)
- *  - Dicionario Global (catalogo consolidado do workspace)
- *  - Exportador "Trust Factor" (JSON de regras de negocio, sem dados visuais)
- *  - Configuracao e upload para o Google Cloud Storage
- *  - Importacao de paginas via upload pelo navegador
+/*
+ * Modulos transversais da API: Grupos de Parametros (templates reutilizaveis),
+ * Dicionario Global (catalogo consolidado do workspace), exportador de eventos
+ * (JSON so com regra de negocio), configuracao e upload para o Google Cloud
+ * Storage, e importacao de pagina por upload pelo navegador.
  *
- * A API nao expoe NENHUM caminho absoluto nem estrutura de pastas do host —
- * requisito para rodar a ferramenta em servidor compartilhado.
+ * Nada aqui devolve caminho absoluto ou estrutura de pastas do host. E o que
+ * permite rodar a ferramenta em um servidor compartilhado.
  */
 
 import express from 'express';
@@ -22,7 +18,7 @@ import {
   sanitizeName,
   uniquePath,
 } from '../lib/paths.js';
-import { collectAllDocs, extractEvents, readDocIfValid, isPapyrusDoc } from '../lib/papyrus.js';
+import { collectAllDocs, extractEvents, readDocIfValid, isPapyrusDoc, EVENT_ID_PARAM } from '../lib/papyrus.js';
 import {
   gcsStatus, uploadToGcs, readGcsFileConfig, saveGcsConfig, testGcs, gcsEnvOverrides,
 } from '../lib/gcs.js';
@@ -30,9 +26,7 @@ import {
 const router = express.Router();
 const TEMPLATES_FILE = path.join(SYSTEM_DIR, 'parameter-groups.json');
 
-/* -------------------------------------------------------------------------- */
-/* Grupos de Parametros                                                       */
-/* -------------------------------------------------------------------------- */
+/* Grupos de Parametros */
 
 async function readTemplates() {
   try {
@@ -53,7 +47,7 @@ router.get('/templates', async (_req, res, next) => {
   }
 });
 
-/** PUT /api/templates  { groups: [...] } — grava a colecao inteira. */
+/** PUT /api/templates  { groups: [...] }: grava a colecao inteira. */
 router.put('/templates', async (req, res, next) => {
   try {
     const groups = Array.isArray(req.body.groups) ? req.body.groups : [];
@@ -69,16 +63,16 @@ router.put('/templates', async (req, res, next) => {
   }
 });
 
-/* -------------------------------------------------------------------------- */
-/* Dicionario Global                                                          */
-/* -------------------------------------------------------------------------- */
+/* Dicionario Global */
 
 /**
  * GET /api/dictionary
- * Consolida todo o workspace em tres visoes:
- *   events     -> todos os eventos e onde eles vivem
- *   parameters -> parametros unicos + de-para com os eventos que os usam
- *   conflicts  -> mesmo parametro declarado com tipos diferentes (risco de schema)
+ *
+ * Consolida o workspace inteiro em tres visoes: `events` traz todo evento e
+ * onde ele mora, `parameters` traz os parametros unicos com o de-para dos
+ * eventos que os usam, e `conflicts` lista o mesmo parametro declarado com
+ * tipos diferentes, que e o risco de schema. `eventIdCollisions` fecha a conta
+ * apontando o event_id que aparece em mais de um card.
  */
 router.get('/dictionary', async (_req, res, next) => {
   try {
@@ -128,15 +122,19 @@ router.get('/dictionary', async (_req, res, next) => {
       .filter((p) => p.types.length > 1)
       .map((p) => ({ name: p.name, scope: p.scope, types: p.types }));
 
-    // Eventos com o mesmo nome declarados em paginas diferentes.
-    const byName = new Map();
+    // event_id repetido. O validador da pagina so enxerga a pagina aberta, e a
+    // chave precisa ser unica no workspace todo, entao a colisao entre paginas
+    // so aparece aqui.
+    const byEventId = new Map();
     for (const e of events) {
-      if (!byName.has(e.event_name)) byName.set(e.event_name, []);
-      byName.get(e.event_name).push(e.page);
+      const id = ((e.parameters.event || []).find((p) => p.name === EVENT_ID_PARAM)?.example || '').trim();
+      if (!id) continue;
+      if (!byEventId.has(id)) byEventId.set(id, []);
+      byEventId.get(id).push({ event: e.event_name, page: e.page, pagePath: e.pagePath });
     }
-    const duplicates = [...byName.entries()]
-      .filter(([, pages]) => pages.length > 1)
-      .map(([name, pages]) => ({ name, pages: [...new Set(pages)] }));
+    const eventIdCollisions = [...byEventId.entries()]
+      .filter(([, uses]) => uses.length > 1)
+      .map(([id, uses]) => ({ id, uses }));
 
     res.json({
       generatedAt: new Date().toISOString(),
@@ -144,30 +142,61 @@ router.get('/dictionary', async (_req, res, next) => {
       events,
       parameters,
       conflicts,
-      duplicates,
+      eventIdCollisions,
     });
   } catch (err) {
     next(err);
   }
 });
 
-/* -------------------------------------------------------------------------- */
-/* Exportador Trust Factor                                                    */
-/* -------------------------------------------------------------------------- */
+/* Exportador */
 
 /**
- * POST /api/export/trust
- * body: { paths?: string[], filename?: string, gcs?: boolean }
+ * POST /api/export/events
+ * body: { paths?: string[], filename?: string }
  *
  * Gera `{ "<nome da pagina>": [ ...eventos com parametros tipados ] }`.
  * Nenhuma coordenada de canvas, cor ou elemento visual entra no arquivo.
- * Destinos: download pelo navegador (padrao) ou bucket GCS. Nao existe
- * gravacao em caminho arbitrario do disco — isso exporia o filesystem do
- * servidor quando a ferramenta roda compartilhada.
+ *
+ * O destino e sempre o bucket do Google Cloud Storage configurado. O contrato
+ * de coleta precisa morar em um lugar so, versionado e acessivel ao time; um
+ * download solto na maquina de quem exportou vira copia divergente no dia
+ * seguinte. Gravar em caminho de disco tambem nao e opcao, porque exporia o
+ * filesystem do servidor quando a ferramenta roda compartilhada.
+ *
+ * Recusa a exportacao quando algum event_id falta ou se repete. A UI ja checa
+ * isso antes de habilitar o botao, mas a garantia precisa morar aqui: o arquivo
+ * no bucket e lido como verdade pelo time de engenharia, e um id repetido faz
+ * dois eventos diferentes chegarem como o mesmo no GA4.
  */
-router.post('/export/trust', async (req, res, next) => {
+/** Aponta evento sem event_id e event_id usado por mais de um evento. */
+function findEventIdProblems(payload) {
+  const problems = [];
+  const byId = new Map();
+
+  for (const [page, events] of Object.entries(payload)) {
+    for (const evt of events) {
+      const id = ((evt.parameters?.event || []).find((p) => p.name === EVENT_ID_PARAM)?.example || '').trim();
+
+      if (!id) {
+        problems.push({ kind: 'missing', page, event: evt.event_name });
+        continue;
+      }
+      if (!byId.has(id)) byId.set(id, []);
+      byId.get(id).push({ page, event: evt.event_name });
+    }
+  }
+
+  for (const [id, uses] of byId) {
+    if (uses.length > 1) problems.push({ kind: 'duplicate', id, uses });
+  }
+
+  return problems;
+}
+
+router.post('/export/events', async (req, res, next) => {
   try {
-    const { paths: requested, filename, gcs } = req.body;
+    const { paths: requested, filename } = req.body;
 
     const docs =
       Array.isArray(requested) && requested.length
@@ -187,32 +216,32 @@ router.post('/export/trust', async (req, res, next) => {
       payload[pageName] = extractEvents(item.doc);
     }
 
-    const json = JSON.stringify(payload, null, 2);
-
-    // Destino: bucket do Google Cloud Storage.
-    if (gcs) {
-      const safeName = sanitizeName(filename || `trust-factor-${Date.now()}`);
-      const object = safeName.endsWith('.json') ? safeName : `${safeName}.json`;
-      const uploaded = await uploadToGcs({
-        filename: object,
-        contentType: 'application/json',
-        buffer: Buffer.from(json, 'utf8'),
+    const problems = findEventIdProblems(payload);
+    if (problems.length) {
+      return res.status(409).json({
+        error: 'Exportacao bloqueada: event_id ausente ou repetido.',
+        problems,
       });
-      return res.json({ saved: true, gcs: uploaded, pages: Object.keys(payload).length });
     }
 
-    // Padrao: devolve o conteudo para download direto pelo navegador.
-    res.json({ saved: false, payload });
+    const json = JSON.stringify(payload, null, 2);
+    const safeName = sanitizeName(filename || `papyrus-${Date.now()}`);
+    const object = safeName.endsWith('.json') ? safeName : `${safeName}.json`;
+
+    const uploaded = await uploadToGcs({
+      filename: object,
+      contentType: 'application/json',
+      buffer: Buffer.from(json, 'utf8'),
+    });
+    res.json({ saved: true, gcs: uploaded, pages: Object.keys(payload).length });
   } catch (err) {
     next(err);
   }
 });
 
-/* -------------------------------------------------------------------------- */
-/* Google Cloud Storage                                                       */
-/* -------------------------------------------------------------------------- */
+/* Google Cloud Storage */
 
-/** GET /api/gcs/status — a UI usa isto para habilitar (ou explicar) a opcao. */
+/** GET /api/gcs/status: a UI usa isto para habilitar, ou explicar, a opcao. */
 router.get('/gcs/status', async (_req, res, next) => {
   try {
     res.json(await gcsStatus());
@@ -222,7 +251,7 @@ router.get('/gcs/status', async (_req, res, next) => {
 });
 
 /**
- * GET /api/settings/gcs — configuracao atual para a aba Configuracoes.
+ * GET /api/settings/gcs: configuracao atual para a aba Configuracoes.
  * Nem a chave privada nem CAMINHOS do servidor sao devolvidos: a credencial
  * vira apenas o booleano `hasCredential`.
  */
@@ -276,49 +305,19 @@ router.post('/settings/gcs/test', async (req, res, next) => {
   }
 });
 
-/**
- * POST /api/export/gcs
- * body: { filename: string, contentType: string, dataBase64: string }
- * Upload generico — usado pelo exportador de imagens (PNG/JPG).
- */
-router.post('/export/gcs', async (req, res, next) => {
-  try {
-    const { filename, contentType, dataBase64 } = req.body;
-    if (!filename || !dataBase64) {
-      return res.status(400).json({ error: 'filename e dataBase64 sao obrigatorios.' });
-    }
-
-    const buffer = Buffer.from(String(dataBase64), 'base64');
-    if (buffer.length > 100 * 1024 * 1024) {
-      return res.status(413).json({ error: 'Arquivo acima de 100 MB.' });
-    }
-
-    const uploaded = await uploadToGcs({
-      filename: sanitizeName(filename),
-      contentType: contentType || 'application/octet-stream',
-      buffer,
-    });
-    res.json({ saved: true, gcs: uploaded });
-  } catch (err) {
-    next(err);
-  }
-});
-
-/* -------------------------------------------------------------------------- */
-/* Importacao                                                                 */
-/* -------------------------------------------------------------------------- */
+/* Importacao */
 
 /*
- * Nota de seguranca: a importacao acontece SOMENTE via upload pelo navegador
- * (/api/import/inline). O antigo navegador de diretorios do SO e a importacao
- * por caminho absoluto foram removidos de proposito — quando a ferramenta roda
- * em um servidor compartilhado, eles exporiam a estrutura de pastas do host.
+ * A importacao acontece so por upload pelo navegador, em /api/import/inline. O
+ * antigo navegador de diretorios do SO e a importacao por caminho absoluto
+ * foram removidos de proposito: com a ferramenta em servidor compartilhado, os
+ * dois exporiam a estrutura de pastas do host.
  */
 
 /**
  * POST /api/import/inline
  * body: { files: [{ name, content }], destination? }
- * Usado quando o usuario arrasta/seleciona arquivos pelo proprio navegador.
+ * Usado quando a pessoa arrasta ou seleciona arquivos pelo proprio navegador.
  */
 router.post('/import/inline', async (req, res, next) => {
   try {

@@ -1,12 +1,10 @@
-/**
- * canvas/geometry.js
- * ---------------------------------------------------------------------------
- * Calculos espaciais compartilhados: caixas delimitadoras, ancoras magneticas
- * e roteamento dos conectores.
+/*
+ * Calculos espaciais compartilhados: caixa delimitadora, ancora magnetica e
+ * roteamento de conector.
  *
- * `sizeCache` guarda a altura real medida em tempo de render (cards de evento e
- * textos tem altura dinamica). Assim os conectores encostam na borda correta
- * sem precisar duplicar a matematica de layout.
+ * `sizeCache` guarda a altura real medida na hora do render, porque card de
+ * evento e texto tem altura dinamica. Com isso o conector encosta na borda
+ * certa sem duplicar a matematica de layout aqui dentro.
  */
 
 import { DEFAULTS } from '../constants.js';
@@ -55,9 +53,9 @@ export function getAnchors(el) {
 }
 
 /**
- * Escolhe automaticamente o par de ancoras mais curto entre dois elementos.
- * E o que da a sensacao de "conector magnetico": a seta sempre sai e chega
- * pelo lado mais natural, mesmo depois de arrastar os cards.
+ * Escolhe o par de ancoras mais curto entre dois elementos. E daqui que vem a
+ * sensacao de conector magnetico: a seta sai e chega pelo lado mais natural,
+ * mesmo depois de arrastar os cards.
  */
 export function routeConnector(fromEl, toEl, fromAnchor = 'auto', toAnchor = 'auto') {
   const a = getAnchors(fromEl);
@@ -88,10 +86,11 @@ const SIDE_NORMALS = {
 };
 
 /**
- * Gera os pontos de uma curva Bézier cúbica entre duas âncoras.
- * Os pontos de controle saem PERPENDICULARES ao lado ancorado — é o que dá a
- * curva elegante estilo Figma: a linha "nasce" da borda do card e faz um S
- * suave até o destino, em vez de cortar o elemento na diagonal.
+ * Gera os pontos de uma curva Bezier cubica entre duas ancoras.
+ *
+ * Os pontos de controle saem perpendiculares ao lado ancorado. E o que produz
+ * a curva em S estilo Figma: a linha nasce da borda do card e chega suave no
+ * destino, em vez de cortar o elemento na diagonal.
  *
  * @returns {number[]} [x0,y0, cx1,cy1, cx2,cy2, x1,y1] (usar com bezier: true)
  */
@@ -99,7 +98,7 @@ export function connectorPoints(start, end, fromSide, toSide) {
   const dist = Math.hypot(end.x - start.x, end.y - start.y) || 1;
   const reach = Math.min(120, Math.max(24, dist * 0.42));
 
-  // Sem lado definido, o controle aponta na direção do outro extremo.
+  // Sem lado definido, o controle aponta na direcao do outro extremo.
   const fallback = (a, b) => ({ x: (b.x - a.x) / dist, y: (b.y - a.y) / dist });
   const n1 = SIDE_NORMALS[fromSide] || fallback(start, end);
   const n2 = SIDE_NORMALS[toSide] || fallback(end, start);
@@ -112,7 +111,7 @@ export function connectorPoints(start, end, fromSide, toSide) {
   ];
 }
 
-/** Ponto médio (t = 0.5) de uma Bézier cúbica — posiciona o rótulo do conector. */
+/** Ponto medio (t = 0.5) de uma Bezier cubica, onde fica o rotulo do conector. */
 export function bezierMidpoint(points) {
   const [x0, y0, x1, y1, x2, y2, x3, y3] = points;
   return {
@@ -121,7 +120,7 @@ export function bezierMidpoint(points) {
   };
 }
 
-/** Caixa que engloba todos os elementos — usada pelo "Fit" e pela exportacao PNG. */
+/** Caixa que engloba todos os elementos. Usada pelo "Fit" e pela exportacao PNG. */
 export function getContentBounds(elements) {
   const boxes = elements
     .filter((el) => el.type !== 'connector')

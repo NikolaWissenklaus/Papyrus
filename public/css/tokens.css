@@ -1,17 +1,17 @@
-/* ==========================================================================
-   tokens.css — Design System do Papyrus
-   --------------------------------------------------------------------------
-   Linguagem visual do Material Design do Google: paleta oficial (Google Blue
-   #1A73E8, Red #EA4335, Yellow #FBBC04, Green #34A853), cinzas neutros,
-   superfícies claras, elevação sutil e formas arredondadas.
+/*
+   Design System do Papyrus.
 
-   Cores de tipo de evento: codificação funcional de dado (View / Interaction /
-   Ecommerce / Automatic) — não são decoração, por isso seguem o padrão
-   semântico Azul / Verde / Amarelo / Vermelho.
-   ========================================================================== */
+   A linguagem visual vem do Material Design do Google: paleta oficial (Blue
+   #1A73E8, Red #EA4335, Yellow #FBBC04, Green #34A853), cinzas neutros,
+   superfícies claras, elevação sutil e cantos arredondados.
+
+   As cores de tipo de evento (View, Interaction, Ecommerce, Automatic) não são
+   decoração: elas codificam o dado, e por isso seguem o padrão semântico de
+   azul, verde, amarelo e vermelho.
+*/
 
 :root {
-  /* --- Paleta Google ------------------------------------------------------ */
+  /* Paleta Google */
   --google-blue: #1a73e8;
   --google-red: #ea4335;
   --google-yellow: #fbbc04;
@@ -27,13 +27,13 @@
   --branco: #ffffff;
   --cinza: #5f6368;
 
-  /* --- Primária (ações, seleção, foco) ------------------------------------ */
+  /* Primária (ações, seleção, foco) */
   --primary: var(--google-blue);
   --primary-hover: #1765cc;
   --primary-soft: #e8f0fe;
   --focus-ring: rgba(26, 115, 232, 0.18);
 
-  /* --- Superfícies e traços (neutros estilo Google) ------------------------ */
+  /* Superfícies e traços (neutros estilo Google) */
   --off-white: #f8f9fa;
   --surface: #ffffff;
   --surface-alt: #f1f3f4;
@@ -45,13 +45,13 @@
   --text-muted: #5f6368;
   --text-faint: #9aa0a6;
 
-  /* --- Tipos de evento (codificação funcional) --------------------------- */
-  --evt-view: #1a73e8;        /* View        — azul    */
-  --evt-interaction: #188038; /* Interaction — verde   */
-  --evt-ecommerce: #f9ab00;   /* Ecommerce   — amarelo */
-  --evt-automatic: #a142f4;   /* Automatic   — lilás   */
+  /* Tipos de evento (codificação funcional) */
+  --evt-view: #1a73e8;        /* View: azul */
+  --evt-interaction: #188038; /* Interaction: verde */
+  --evt-ecommerce: #f9ab00;   /* Ecommerce: amarelo */
+  --evt-automatic: #a142f4;   /* Automatic: lilás */
 
-  /* --- Semânticas -------------------------------------------------------- */
+  /* Semânticas */
   --ok: #188038;
   --warn: #b06000;
   --danger: #d93025;
@@ -59,22 +59,22 @@
   --warn-bg: #fef7e0;
   --danger-bg: #fce8e6;
 
-  /* --- Tipografia (Google Sans quando instalada; Roboto cobre o resto) ---- */
+  /* Tipografia (Google Sans quando instalada; Roboto cobre o resto) */
   --font-display: 'Google Sans', 'Product Sans', 'Roboto', 'Helvetica Neue', Arial, sans-serif;
   --font-body: 'Roboto', 'Helvetica Neue', Arial, sans-serif;
   --font-mono: 'Roboto Mono', 'Consolas', 'SF Mono', monospace;
 
-  /* --- Forma ------------------------------------------------------------- */
+  /* Forma */
   --radius-card: 16px;
   --radius-sm: 10px;
   --radius-button: 999px;
 
-  /* --- Elevação (Material: sutil, difusa, nunca pesada) ------------------- */
+  /* Elevação (Material: sutil, difusa, nunca pesada) */
   --shadow-1: 0 1px 2px rgba(60, 64, 67, 0.1);
   --shadow-2: 0 1px 3px rgba(60, 64, 67, 0.12), 0 4px 10px 2px rgba(60, 64, 67, 0.06);
   --shadow-3: 0 4px 12px rgba(60, 64, 67, 0.12), 0 10px 28px 4px rgba(60, 64, 67, 0.08);
 
-  /* --- Layout ------------------------------------------------------------ */
+  /* Layout */
   --topbar-h: 56px;
   --sidebar-w: 288px;
   --inspector-w: 380px;

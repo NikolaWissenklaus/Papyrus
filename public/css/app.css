@@ -1,8 +1,6 @@
-/* ==========================================================================
-   app.css — Layout, navegação, canvas shell, painéis e modais
-   ========================================================================== */
+/* Layout, navegação, canvas shell, painéis e modais. */
 
-/* ---------------------------------------------------------------- Topbar -- */
+/* Topbar */
 .topbar {
   height: var(--topbar-h);
   display: flex;
@@ -136,7 +134,7 @@
   margin: 0 2px;
 }
 
-/* ---------------------------------------------------------------- Botões -- */
+/* Botões */
 .btn {
   font-family: var(--font-body);
   font-size: 13px;
@@ -204,13 +202,13 @@
   pointer-events: none;
 }
 
-/* ------------------------------------------------------------- Workspace -- */
+/* Workspace */
 .workspace {
   display: flex;
   height: calc(100vh - var(--topbar-h));
 }
 
-/* --------------------------------------------------------------- Sidebar -- */
+/* Sidebar */
 .sidebar {
   width: var(--sidebar-w);
   flex: 0 0 var(--sidebar-w);
@@ -293,11 +291,12 @@
   display: grid;
   place-items: center;
 }
+/* A cor do icone vem inline (pasta personalizavel, pagina sempre azul), por
+   isso nada de opacidade aqui: ela lavaria a cor escolhida. */
 .tree-node__icon svg {
   width: 14px;
   height: 14px;
   fill: currentColor;
-  opacity: 0.65;
 }
 .tree-node__label {
   flex: 1;
@@ -338,7 +337,7 @@
   line-height: 1.7;
 }
 
-/* ------------------------------------------------------------------ Views -- */
+/* Views */
 .view {
   display: none;
   flex: 1;
@@ -358,7 +357,7 @@
   padding: 32px 32px 96px;
 }
 
-/* ------------------------------------------------------------ Canvas shell -- */
+/* Canvas shell */
 .canvas-shell {
   position: relative;
   flex: 1;
@@ -566,7 +565,7 @@
   font-size: 11px;
 }
 
-/* -------------------------------------------------------------- Inspetor -- */
+/* Inspetor */
 .inspector {
   width: var(--inspector-w);
   flex: 0 0 var(--inspector-w);
@@ -595,7 +594,7 @@
   line-height: 1.7;
 }
 
-/* -------------------------------------------------------- Cards genéricos -- */
+/* Cards genéricos */
 .card {
   background: var(--surface);
   border: 1px solid var(--border);
@@ -731,7 +730,7 @@
   border-color: #feefc3;
 }
 
-/* --------------------------------------------------------------- Toasts -- */
+/* Toasts */
 .toasts {
   position: fixed;
   bottom: 20px;
@@ -767,7 +766,7 @@
   }
 }
 
-/* --------------------------------------------------------------- Modais -- */
+/* Modais */
 /* A camada e apenas um container; cada modal cria o proprio backdrop, o que
    permite empilhar dialogos (o seletor de pastas abre sobre o exportador). */
 .modal-layer {

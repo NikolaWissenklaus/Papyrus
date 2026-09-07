@@ -1,11 +1,9 @@
-/**
- * canvas/nodes.js
- * ---------------------------------------------------------------------------
- * Traducao "elemento do documento" -> "no do Konva".
+/*
+ * Traduz um elemento do documento em um no do Konva.
  *
- * Este modulo e puramente visual: nao conhece selecao, ferramentas nem store.
- * Recebe o elemento e devolve um Konva.Group com `id(el.id)`. O stage cuida da
- * interacao.
+ * Aqui e so a parte visual: o modulo nao sabe o que e selecao, ferramenta ou
+ * store. Ele recebe o elemento e devolve um Konva.Group com `id(el.id)`. Quem
+ * cuida da interacao e o stage.
  */
 
 import { EVENT_TYPE_MAP, DEFAULTS } from '../constants.js';
@@ -16,17 +14,15 @@ const FONT_BODY = "Roboto, 'Helvetica Neue', Arial, sans-serif";
 const FONT_DISPLAY = "'Google Sans', 'Product Sans', Roboto, 'Helvetica Neue', Arial, sans-serif";
 const FONT_MONO = "'Roboto Mono', Consolas, monospace";
 
-/** Cache de imagens ja carregadas — evita recarregar a cada re-render. */
+/** Cache das imagens ja carregadas, para nao recarregar a cada re-render. */
 const imageCache = new Map();
 
-/* -------------------------------------------------------------------------- */
-/* Card de Evento                                                             */
-/* -------------------------------------------------------------------------- */
+/* Card de Evento */
 
-/**
- * O card e desenhado com um cursor vertical (`y`) que avanca conforme os blocos
- * sao adicionados. No final, a altura real e gravada em `sizeCache` para que os
- * conectores encostem exatamente na borda inferior.
+/*
+ * O card e desenhado com um cursor vertical (`y`) que avanca a cada bloco
+ * adicionado. No fim a altura real vai para o `sizeCache`, e e assim que o
+ * conector consegue encostar exatamente na borda de baixo.
  */
 function buildEventCard(el) {
   const PAD = 16;
@@ -36,9 +32,9 @@ function buildEventCard(el) {
 
   const group = new Konva.Group({ id: el.id, x: el.x, y: el.y, name: 'element event-card' });
 
-  // Fundo (altura ajustada ao final). O bg é o ÚNICO shape do card que escuta
-  // eventos — todo o conteúdo interno é decorativo, então desenhar hit-canvas
-  // para cada texto seria puro desperdício (é o que mais pesa em mapas grandes).
+  // Fundo, com a altura ajustada no final. O bg e o unico shape do card que
+  // escuta eventos: o conteudo interno e decorativo, e desenhar hit-canvas para
+  // cada texto seria desperdicio. Em mapa grande, e o que mais pesa.
   const bg = new Konva.Rect({
     width: W,
     height: 100,
@@ -55,8 +51,8 @@ function buildEventCard(el) {
   });
   group.add(bg);
 
-  // Cabeçalho do tipo: filete de acento na cor plena + faixa suave com o rótulo
-  // na variante escura — codificação de dado legível sem "gritar" no mapa.
+  // Cabecalho do tipo: filete de acento na cor plena e faixa suave com o rotulo
+  // na variante escura. Da para ler o tipo de longe sem poluir o mapa.
   const HEAD = 26;
   group.add(
     new Konva.Rect({
@@ -93,7 +89,7 @@ function buildEventCard(el) {
 
   let y = HEAD + 14;
 
-  // --- Nome do evento -------------------------------------------------------
+  // Nome do evento
   group.add(
     new Konva.Text({
       x: PAD,
@@ -111,7 +107,7 @@ function buildEventCard(el) {
   );
   y += 24;
 
-  // --- Plataformas ----------------------------------------------------------
+  // Plataformas
   const platforms = (d.platform || []).map((p) => p.toUpperCase()).join(' · ') || 'SEM PLATAFORMA';
   group.add(
     new Konva.Text({
@@ -145,20 +141,20 @@ function buildEventCard(el) {
   group.add(divider(PAD, y, W));
   y += 12;
 
-  // --- Gatilho --------------------------------------------------------------
+  // Gatilho
   group.add(label(PAD, y, 'GATILHO', W - PAD * 2));
   y += 13;
   group.add(value(PAD, y, d.trigger || '—', W - PAD * 2));
   y += 20;
 
-  // --- Governanca -----------------------------------------------------------
+  // Governanca
   const gov = [d.squad, d.owner].filter(Boolean).join('  ·  ') || '—';
   group.add(label(PAD, y, 'SQUAD / RESPONSÁVEL', W - PAD * 2));
   y += 13;
   group.add(value(PAD, y, gov, W - PAD * 2));
   y += 20;
 
-  // --- Ticket (Jira/Trello) -------------------------------------------------
+  // Ticket (Jira/Trello)
   if (d.ticketName || d.ticketId) {
     group.add(label(PAD, y, 'CARD', W - PAD * 2));
     y += 13;
@@ -167,7 +163,7 @@ function buildEventCard(el) {
         x: PAD,
         y,
         width: W - PAD * 2,
-        text: [d.ticketId, d.ticketName].filter(Boolean).join(' — '),
+        text: [d.ticketId, d.ticketName].filter(Boolean).join(' · '),
         fontSize: 12,
         fontFamily: FONT_BODY,
         fill: d.ticketUrl ? '#1A73E8' : '#202124',
@@ -180,7 +176,7 @@ function buildEventCard(el) {
     y += 20;
   }
 
-  // --- Tabela de parametros -------------------------------------------------
+  // Tabela de parametros
   y += 2;
   group.add(divider(PAD, y, W));
   y += 12;
@@ -318,9 +314,7 @@ function finish(group, bg, el, width, height) {
   return group;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Demais elementos                                                           */
-/* -------------------------------------------------------------------------- */
+/* Demais elementos */
 
 function buildRect(el) {
   const group = new Konva.Group({ id: el.id, x: el.x, y: el.y, name: 'element shape' });
@@ -446,7 +440,7 @@ function buildImage(el, ctx) {
       }),
     );
   } else {
-    // Placeholder enquanto carrega — evita "pulos" de layout.
+    // Placeholder enquanto carrega, para o layout nao pular.
     group.add(
       new Konva.Rect({
         width: el.width,
@@ -507,9 +501,9 @@ function buildPin(el) {
 }
 
 /**
- * Conector: Bézier cúbica com ponta de seta. Os pontos de controle saem
- * perpendiculares ao lado ancorado (ver geometry.js), o que dá à linha uma
- * curvatura em S elegante que acompanha os elementos ao serem movidos.
+ * Conector: Bezier cubica com ponta de seta. Os pontos de controle saem
+ * perpendiculares ao lado ancorado (ver geometry.js), o que da a curvatura em S
+ * e faz a linha acompanhar os elementos quando eles sao movidos.
  */
 function buildConnector(el, ctx) {
   const fromEl = ctx.findElement(el.from?.id);
@@ -521,8 +515,8 @@ function buildConnector(el, ctx) {
 
   const group = new Konva.Group({ id: el.id, name: 'element connector', listening: true });
 
-  // Linha "fantasma" mais grossa facilita clicar no conector — e o unico
-  // shape do grupo que escuta eventos (a seta visivel nao precisa de hit).
+  // Uma linha fantasma mais grossa deixa o conector facil de clicar. E o unico
+  // shape do grupo que escuta eventos; a seta visivel nao precisa de hit.
   group.add(
     new Konva.Line({
       points, stroke: 'transparent', strokeWidth: 14, bezier: true,
@@ -577,9 +571,7 @@ function buildConnector(el, ctx) {
   return group;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Dispatcher                                                                 */
-/* -------------------------------------------------------------------------- */
+/* Dispatcher */
 
 const BUILDERS = {
   event: buildEventCard,
@@ -604,7 +596,7 @@ export function buildNode(el, ctx) {
   const node = builder(el, ctx);
   if (!node) return null;
 
-  // Conectores nunca sao arrastados diretamente: seguem os elementos ancorados.
+  // Conector nunca e arrastado direto: ele segue os elementos ancorados.
   node.draggable(el.type !== 'connector');
   return node;
 }

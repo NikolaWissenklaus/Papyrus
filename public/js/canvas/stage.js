@@ -1,14 +1,12 @@
-/**
- * canvas/stage.js
- * ---------------------------------------------------------------------------
- * O canvas infinito: palco Konva, pan/zoom, ferramentas, selecao, arrasto,
- * conectores magneticos e edicao inline de texto.
+/*
+ * O canvas infinito: palco Konva, pan e zoom, ferramentas, selecao, arrasto,
+ * conector magnetico e edicao inline de texto.
  *
- * Estrategia de render: incremental com diff por fingerprint (`render()`) —
- * cada elemento e comparado com a versao que gerou seu no Konva e so o que
- * mudou e reconstruido; commits do mesmo frame sao agrupados em um unico
- * render. Durante um arrasto nada e reconstruido — o Konva move os nos e apenas
- * os conectores sao recalculados em tempo real (`redrawConnectors`).
+ * O render de render() e incremental. Cada elemento e comparado com a versao
+ * que gerou o no Konva atual e so o que mudou e reconstruido; commits do mesmo
+ * frame entram em um render unico. Durante um arrasto nada e reconstruido: o
+ * Konva move os nos e so os conectores sao recalculados em tempo real, em
+ * redrawConnectors().
  */
 
 import {
@@ -18,7 +16,7 @@ import {
 import { clamp, uid } from '../util.js';
 import { DEFAULTS } from '../constants.js';
 import {
-  createShape, createSticky, createText, createPin, createConnector, createEventCard,
+  createShape, createSticky, createText, createPin, createConnector, createEventCard, renewEventIds,
 } from '../models.js';
 import { buildNode, imageCache } from './nodes.js';
 import {
@@ -55,16 +53,14 @@ const session = {
   editing: null,          // textarea aberto
 };
 
-/* ========================================================================== */
-/* Inicializacao                                                              */
-/* ========================================================================== */
+/* Inicializacao */
 
 export function initStage(container) {
   host = container;
 
-  // Em monitores com escala alta (Windows a 200%+), o Konva renderiza cada
-  // canvas em devicePixelRatio cheio — 2.5x de escala = 6x mais pixels por
-  // frame. Limitar a 2 e visualmente identico e muito mais leve.
+  // Em monitor com escala alta (Windows a 200% ou mais) o Konva renderiza cada
+  // canvas no devicePixelRatio cheio, e 2.5x de escala ja significa 6x mais
+  // pixels por frame. Travar em 2 fica visualmente igual e bem mais leve.
   Konva.pixelRatio = Math.min(window.devicePixelRatio || 1, 2);
 
   stage = new Konva.Stage({
@@ -104,9 +100,9 @@ export function initStage(container) {
   bindTransformer();
   bindWindowEvents();
 
-  // Ao trocar para as abas "Grupos" ou "Dicionário" o container fica com
-  // display:none e reporta 0x0. Redimensionar o palco para zero faz o Konva
-  // tentar desenhar um canvas vazio e lançar erro — por isso ignoramos.
+  // Nas abas "Grupos" e "Dicionario" o container fica com display:none e
+  // reporta 0x0. Redimensionar o palco para zero faz o Konva tentar desenhar um
+  // canvas vazio e estourar erro, entao ignoramos essa medida.
   new ResizeObserver(() => {
     const width = host.clientWidth;
     const height = host.clientHeight;
@@ -133,15 +129,13 @@ export function initStage(container) {
 const cursorForTool = (tool) =>
   tool === 'hand' ? 'grab' : tool === 'select' ? 'default' : 'crosshair';
 
-/* ========================================================================== */
-/* Render                                                                     */
-/* ========================================================================== */
+/* Render */
 
-/**
- * Cache de render incremental: id -> { fp, node }.
- * `fp` e o fingerprint (JSON) do elemento na ultima construcao — se nao mudou,
- * o no Konva e reaproveitado como esta. Reconstruir tudo a cada tecla digitada
- * no inspetor era a principal fonte de travamento em mapas grandes.
+/*
+ * Cache do render incremental, no formato id -> { fp, node }. O `fp` e o
+ * fingerprint (JSON) do elemento na ultima construcao: se ele nao mudou, o no
+ * Konva e reaproveitado como esta. Reconstruir tudo a cada tecla digitada no
+ * inspetor era a maior fonte de travamento em mapas grandes.
  */
 const nodeCache = new Map();
 
@@ -161,12 +155,13 @@ export function render() {
     }
   }
 
-  // 2. Elementos: diff por fingerprint — so o que mudou e reconstruido.
+  // 2. Elementos: diff por fingerprint, so o que mudou e reconstruido.
   for (const el of elements) {
     if (el.type === 'connector') continue;
 
-    // Imagens: o visual muda quando o arquivo termina de carregar (placeholder
-    // -> bitmap) mesmo com o elemento identico, entao o estado entra no hash.
+    // Imagem: mesmo com o elemento identico o visual muda quando o arquivo
+    // termina de carregar e o placeholder vira bitmap. Por isso o estado do
+    // carregamento entra no hash.
     const loadedSuffix = el.type === 'image' && imageCache.has(el.url) ? '|loaded' : '';
     const fp = JSON.stringify(el) + loadedSuffix;
     const cached = nodeCache.get(el.id);
@@ -186,8 +181,8 @@ export function render() {
     layer.add(node);
   }
 
-  // 3. Conectores: sempre reconstruidos — dependem da posicao e da altura
-  //    medida (sizeCache) dos elementos ancorados. Sao poucos e baratos.
+  // 3. Conectores sao sempre reconstruidos, porque dependem da posicao e da
+  //    altura medida (sizeCache) dos elementos ancorados. Sao poucos e baratos.
   for (const el of elements) {
     if (el.type !== 'connector') continue;
     nodes.get(el.id)?.destroy();
@@ -237,11 +232,9 @@ export function applyViewport(viewport) {
   emitZoom();
 }
 
-/* ========================================================================== */
-/* Grid                                                                       */
-/* ========================================================================== */
+/* Grid */
 
-/** A malha e desenhada via CSS no container — custo zero de render no Konva. */
+/** A malha e desenhada via CSS no container, custo zero de render no Konva. */
 function paintGrid() {
   if (!host || !stage) return;
   const scale = stage.scaleX();
@@ -253,12 +246,10 @@ function paintGrid() {
   host.style.backgroundPosition = `${stage.x()}px ${stage.y()}px`;
 }
 
-/* ========================================================================== */
-/* Eventos do palco                                                           */
-/* ========================================================================== */
+/* Eventos do palco */
 
 function bindStageEvents() {
-  // --- Zoom (Ctrl/pinch) e pan (scroll) ------------------------------------
+  // Zoom (Ctrl/pinch) e pan (scroll)
   stage.on('wheel', (e) => {
     e.evt.preventDefault();
 
@@ -275,7 +266,7 @@ function bindStageEvents() {
     }
   });
 
-  // --- Mouse down ----------------------------------------------------------
+  // Mouse down
   stage.on('mousedown touchstart', (e) => {
     if (session.editing) commitInlineEdit();
 
@@ -302,7 +293,7 @@ function bindStageEvents() {
     }
   });
 
-  // --- Clique em elemento --------------------------------------------------
+  // Clique em elemento
   stage.on('click tap', (e) => {
     if (e.target === stage) return;
     const node = e.target.findAncestor('.element', true) || e.target.getParent();
@@ -317,7 +308,7 @@ function bindStageEvents() {
     else if (!state.selection.includes(id)) setSelection([id]);
   });
 
-  // --- Duplo clique: edicao inline / abrir card ----------------------------
+  // Duplo clique: edicao inline / abrir card
   stage.on('dblclick dbltap', (e) => {
     const node = e.target.findAncestor('.element', true) || e.target.getParent();
     const el = getElement(node?.id());
@@ -327,7 +318,7 @@ function bindStageEvents() {
     else if (el.type === 'event') window.dispatchEvent(new CustomEvent('papyrus:focus-inspector'));
   });
 
-  // --- Menu de contexto ----------------------------------------------------
+  // Menu de contexto
   stage.on('contextmenu', async (e) => {
     e.evt.preventDefault();
     const node = e.target === stage ? null : e.target.findAncestor('.element', true);
@@ -355,15 +346,13 @@ function bindStageEvents() {
     }
   });
 
-  // --- Preview do conector -------------------------------------------------
+  // Preview do conector
   stage.on('mousemove', () => {
     if (session.connectFrom) drawConnectorPreview();
   });
 }
 
-/* ========================================================================== */
-/* Pan / zoom                                                                 */
-/* ========================================================================== */
+/* Pan / zoom */
 
 function startPan() {
   session.panning = true;
@@ -481,9 +470,7 @@ export function viewportCenter() {
   };
 }
 
-/* ========================================================================== */
-/* Criacao via ferramenta                                                     */
-/* ========================================================================== */
+/* Criacao via ferramenta */
 
 function createFromTool(world) {
   const tool = state.tool;
@@ -522,15 +509,13 @@ function createFromTool(world) {
   setTool('select');
 }
 
-/* ========================================================================== */
-/* Interacao por no                                                           */
-/* ========================================================================== */
+/* Interacao por no */
 
 function wireNode(node, el) {
   if (el.type === 'connector') return;
 
   node.on('dragstart', () => {
-    // Se o elemento nao estava selecionado, seleciona antes de arrastar.
+    // Se o elemento ainda nao estava selecionado, seleciona antes de arrastar.
     if (!state.selection.includes(el.id)) setSelection([el.id]);
 
     session.dragStart = new Map(
@@ -582,9 +567,7 @@ function wireNode(node, el) {
   }
 }
 
-/* ========================================================================== */
-/* Transformer (resize)                                                       */
-/* ========================================================================== */
+/* Transformer (resize) */
 
 function bindTransformer() {
   transformer.on('transformend', () => {
@@ -646,9 +629,7 @@ function applySelectionVisuals() {
   layer.batchDraw();
 }
 
-/* ========================================================================== */
-/* Marquee (selecao por arrasto)                                              */
-/* ========================================================================== */
+/* Marquee (selecao por arrasto) */
 
 function startMarquee() {
   const origin = pointerWorld();
@@ -689,9 +670,7 @@ function startMarquee() {
   window.addEventListener('mouseup', up);
 }
 
-/* ========================================================================== */
-/* Conectores                                                                 */
-/* ========================================================================== */
+/* Conectores */
 
 /** Recalcula as linhas dos conectores usando as posicoes VIVAS dos nos. */
 function redrawConnectors() {
@@ -713,7 +692,7 @@ function redrawConnectors() {
     node.findOne('.body')?.points(points);
     node.findOne('.hit')?.points(points);
 
-    // O rótulo (quando existe) acompanha o ponto médio da curva.
+    // O rotulo, quando existe, acompanha o ponto medio da curva.
     const labelNode = node.findOne('.connector-label');
     if (labelNode) {
       const mid = bezierMidpoint(points);
@@ -774,9 +753,7 @@ export function cancelConnector() {
   overlay.batchDraw();
 }
 
-/* ========================================================================== */
-/* Edicao inline de texto                                                     */
-/* ========================================================================== */
+/* Edicao inline de texto */
 
 function startInlineEdit(el, node) {
   const textNode = node.findOne('.label');
@@ -847,9 +824,7 @@ function cancelInlineEdit() {
   layer.batchDraw();
 }
 
-/* ========================================================================== */
-/* Acoes expostas                                                             */
-/* ========================================================================== */
+/* Acoes expostas */
 
 export function duplicateSelection(offset = 24) {
   const selected = state.selection.map(getElement).filter(Boolean);
@@ -866,6 +841,9 @@ export function duplicateSelection(offset = 24) {
       idMap.set(el.id, copy.id);
       return copy;
     });
+
+  // Cada duplicata e um card novo, com event_id proprio.
+  renewEventIds(copies);
 
   // Conectores internos a selecao sao duplicados junto, religados as copias.
   for (const el of selected) {
@@ -908,20 +886,19 @@ export function nudgeSelection(dx, dy) {
   });
 }
 
-/* ========================================================================== */
-/* Exportacao PNG                                                             */
-/* ========================================================================== */
+/* Exportacao PNG */
 
 /**
  * Exporta o conteudo do canvas em alta resolucao.
  *
- * Tres cuidados:
- *  1. A camada de overlay (transformer, marquee) e ocultada para nao vazar.
- *  2. O fundo e desenhado como um retangulo real — o `toDataURL` do Konva nao
- *     aceita cor de fundo, entao sem isso o PNG sairia sempre transparente.
- *  3. O palco e REDIMENSIONADO temporariamente para cobrir toda a area de
- *     exportacao. Os canvases das camadas do Konva tem o tamanho da viewport
- *     visivel; sem esse passo, qualquer conteudo fora da janela sairia cortado.
+ * Tres cuidados aqui:
+ *
+ *  1. A camada de overlay (transformer, marquee) e escondida para nao vazar.
+ *  2. O fundo vai desenhado como um retangulo de verdade. O `toDataURL` do
+ *     Konva nao aceita cor de fundo, e sem isso o PNG sairia transparente.
+ *  3. O palco e redimensionado temporariamente para cobrir toda a area
+ *     exportada. Os canvases das camadas tem o tamanho da viewport visivel, e
+ *     sem esse passo tudo o que estivesse fora da janela sairia cortado.
  */
 export function exportPNG({
   pixelRatio = 3,
@@ -941,8 +918,8 @@ export function exportPNG({
     return null;
   }
 
-  // No modo "apenas seleção", esconde o que ficou de fora — o recorte de área
-  // sozinho não impediria elementos vizinhos de vazarem para dentro da imagem.
+  // No modo "apenas selecao", esconde o que ficou de fora. So recortar a area
+  // nao bastaria: elemento vizinho ainda apareceria dentro da imagem.
   const hiddenNodes = [];
   if (partial) {
     const keep = new Set(state.selection);
@@ -967,14 +944,14 @@ export function exportPNG({
     height: Math.ceil(bounds.height + padding * 2),
   };
 
-  // Navegadores limitam a dimensao de um canvas (~16k px por lado).
-  // Reduz o fator de escala automaticamente para nunca gerar um arquivo corrompido.
+  // Navegador limita a dimensao do canvas em torno de 16k px por lado. O fator
+  // de escala cai sozinho para nunca sair um arquivo corrompido.
   const MAX_SIDE = 16000;
   let ratio = pixelRatio;
   const maxDim = Math.max(area.width, area.height);
   if (maxDim * ratio > MAX_SIDE) {
     ratio = Math.max(0.5, Math.round((MAX_SIDE / maxDim) * 100) / 100);
-    toast.info(`Resolução ajustada para ${ratio}× — o mapa é grande demais para a escala pedida.`);
+    toast.info(`Resolução ajustada para ${ratio}×: o mapa é grande demais para a escala pedida.`);
   }
 
   const prev = {
@@ -1024,9 +1001,7 @@ export function exportPNG({
   return dataUrl;
 }
 
-/* ========================================================================== */
-/* Teclado global do canvas                                                   */
-/* ========================================================================== */
+/* Teclado global do canvas */
 
 function bindWindowEvents() {
   window.addEventListener('keydown', (e) => {

@@ -1,6 +1,4 @@
-/* ==========================================================================
-   forms.css — Inputs, seções do inspetor e tabela de parâmetros
-   ========================================================================== */
+/* Inputs, seções do inspetor e tabela de parâmetros. */
 
 .input,
 .select,
@@ -57,7 +55,7 @@
   background: #fef9f9;
 }
 
-/* -------------------------------------------------------- Campos / grades -- */
+/* Campos / grades */
 .field {
   margin-bottom: 12px;
 }
@@ -87,7 +85,7 @@
   gap: 10px;
 }
 
-/* --------------------------------------------------- Seções (accordion) -- */
+/* Seções (accordion) */
 .section {
   border-bottom: 1px solid var(--border);
 }
@@ -190,7 +188,7 @@
   background: var(--evt-automatic);
 }
 
-/* ------------------------------------------------- Tabela de parâmetros -- */
+/* Tabela de parâmetros */
 .params {
   display: flex;
   flex-direction: column;

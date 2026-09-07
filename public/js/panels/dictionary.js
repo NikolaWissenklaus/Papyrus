@@ -1,14 +1,12 @@
-/**
- * panels/dictionary.js
- * ---------------------------------------------------------------------------
+/*
  * Aba "Dicionario Global".
  *
- * Catalogo consolidado de TODO o workspace: eventos, parametros unicos e o
- * de-para entre eles. O back-end faz a agregacao varrendo a pasta papyrus;
- * aqui a gente so apresenta e filtra.
+ * Catalogo consolidado do workspace inteiro: eventos, parametros unicos e o
+ * de-para entre eles. Quem faz a agregacao, varrendo a pasta papyrus, e o
+ * back-end. Aqui a gente so apresenta e filtra.
  *
- * Quality of Life: alerta de "mesmo parametro com tipos diferentes" — o erro de
- * schema que mais custa caro quando ja chegou no BigQuery.
+ * O painel tambem avisa quando o mesmo parametro aparece com tipos diferentes.
+ * Esse e o erro de schema que sai mais caro depois que ja chegou no BigQuery.
  */
 
 import { api } from '../api.js';
@@ -40,13 +38,12 @@ export async function refresh() {
   }
 }
 
-/* -------------------------------------------------------------------------- */
-/* Render                                                                     */
-/* -------------------------------------------------------------------------- */
+/* Render */
 
 function render() {
   if (!data) return;
-  const { totals, conflicts, duplicates } = data;
+  const { totals, conflicts } = data;
+  const collisions = data.eventIdCollisions || [];
 
   root.innerHTML = `
     <div class="page-head">
@@ -70,11 +67,12 @@ function render() {
       <div class="stat${conflicts.length ? ' stat--alert' : ''}">
         <div class="stat__value">${conflicts.length}</div><div class="stat__label">Conflitos de tipo</div>
       </div>
-      <div class="stat${duplicates.length ? ' stat--alert' : ''}">
-        <div class="stat__value">${duplicates.length}</div><div class="stat__label">Eventos repetidos</div>
+      <div class="stat${collisions.length ? ' stat--alert' : ''}">
+        <div class="stat__value">${collisions.length}</div><div class="stat__label">event_id repetidos</div>
       </div>
     </div>
 
+    ${collisions.length ? collisionBanner(collisions) : ''}
     ${conflicts.length ? conflictBanner(conflicts) : ''}
 
     <div style="display:flex;gap:12px;align-items:center;margin:22px 0 14px">
@@ -91,6 +89,27 @@ function render() {
   bind();
 }
 
+const collisionBanner = (collisions) => `
+  <div class="card" style="border-color:#FAD2CF;background:var(--danger-bg)">
+    <strong style="color:var(--danger);font-size:13px">
+      ${collisions.length} <code>event_id</code> usado(s) por mais de um card
+    </strong>
+    <p class="field__hint" style="margin:6px 0 10px">
+      O <code>event_id</code> é a chave que liga o planejamento ao dado coletado. Repetido, dois
+      eventos diferentes chegam como o mesmo no GA4. Cada card precisa do seu.
+    </p>
+    <div style="display:flex;flex-direction:column;gap:6px">
+      ${collisions
+        .map(
+          (c) => `<div style="font-size:12px">
+            <code>${esc(c.id)}</code>
+            <span class="faint">em ${c.uses.map((u) => `${esc(u.event)} (${esc(u.page)})`).join(', ')}</span>
+          </div>`,
+        )
+        .join('')}
+    </div>
+  </div>`;
+
 const conflictBanner = (conflicts) => `
   <div class="card" style="border-color:#FAD2CF;background:var(--danger-bg)">
     <strong style="color:var(--danger);font-size:13px">
@@ -101,7 +120,7 @@ const conflictBanner = (conflicts) => `
     </p>
     <div style="display:flex;flex-wrap:wrap;gap:6px">
       ${conflicts
-        .map((c) => `<span class="chip chip--danger"><code>${esc(c.name)}</code> — ${c.types.map(esc).join(' / ')}</span>`)
+        .map((c) => `<span class="chip chip--danger"><code>${esc(c.name)}</code>: ${c.types.map(esc).join(' / ')}</span>`)
         .join('')}
     </div>
   </div>`;
@@ -166,7 +185,7 @@ function renderTab() {
     );
   }
 
-  // --- De-para: matriz parametro x evento --------------------------------
+  // De-para: matriz parametro x evento
   const params = data.parameters.filter((p) => !q || p.name.toLowerCase().includes(q)).slice(0, 60);
   const events = [...new Set(data.events.map((e) => e.event_name))].slice(0, 40);
 
@@ -223,9 +242,7 @@ const emptyState = () => `
     Nenhum evento mapeado ainda. Crie cards de evento nas páginas do canvas.
   </div>`;
 
-/* -------------------------------------------------------------------------- */
-/* Interacao                                                                  */
-/* -------------------------------------------------------------------------- */
+/* Interacao */
 
 function bind() {
   root.querySelector('#dict-refresh').onclick = () => refresh();
@@ -249,7 +266,7 @@ function bind() {
   }
 }
 
-/** Exporta o de-para completo em CSV — formato que o time de dados consome direto. */
+/** Exporta o de-para completo em CSV, formato que o time de dados le direto. */
 function exportCSV() {
   const rows = [['pagina', 'evento', 'tipo_evento', 'plataforma', 'squad', 'responsavel', 'escopo', 'parametro', 'tipo', 'obrigatorio']];
 
@@ -269,7 +286,7 @@ function exportCSV() {
     .map((r) => r.map((cell) => `"${String(cell ?? '').replace(/"/g, '""')}"`).join(';'))
     .join('\r\n');
 
-  // BOM para o Excel abrir com acentuação correta.
+  // BOM, senao o Excel abre com a acentuacao quebrada.
   downloadBlob(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }), 'papyrus-dicionario.csv');
   toast.ok('CSV gerado.');
 }

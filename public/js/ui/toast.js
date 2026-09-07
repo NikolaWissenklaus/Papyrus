@@ -1,6 +1,4 @@
-/**
- * ui/toast.js — Notificacoes efemeras no rodape.
- */
+/* Notificacoes efemeras no rodape. */
 
 const host = () => document.getElementById('toasts');
 

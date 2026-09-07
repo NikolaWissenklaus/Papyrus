@@ -1,21 +1,22 @@
-/**
- * lib/gcs.js
- * ---------------------------------------------------------------------------
- * Adapter de Google Cloud Storage — estrutura pronta para publicar exports
- * (Trust Factor, PNG) direto em um bucket.
+/*
+ * Adapter de Google Cloud Storage, destino do JSON que sai pelo botao
+ * "Exportar".
  *
- * A dependência `@google-cloud/storage` NÃO é instalada por padrão para manter
- * a ferramenta leve e 100% offline. O import é dinâmico e só acontece na hora
- * do upload; sem o pacote, a API devolve uma mensagem explicando o passo a passo.
+ * A dependencia `@google-cloud/storage` nao vem instalada por padrao, para a
+ * ferramenta continuar leve e funcionando offline. O import e dinamico e so
+ * acontece na hora do upload. Sem o pacote, a API responde com o passo a passo
+ * da instalacao.
  *
- * Configuração (o env sempre vence o arquivo):
- *   1. Variáveis de ambiente:
- *        GCS_BUCKET   = nome do bucket (obrigatório)
- *        GCS_PREFIX   = "pasta" base dentro do bucket (opcional, ex: "papyrus/")
- *        GCS_KEYFILE  = caminho do JSON da service account (opcional se o
- *                       ambiente já tiver GOOGLE_APPLICATION_CREDENTIALS / ADC)
- *   2. Ou o arquivo `papyrus/_system/gcs.json`:
- *        { "bucket": "meu-bucket", "prefix": "papyrus/", "keyFilename": "C:/chaves/sa.json" }
+ * A configuracao pode vir de duas fontes, e o env sempre vence o arquivo.
+ *
+ * Por variavel de ambiente:
+ *   GCS_BUCKET   nome do bucket (obrigatorio)
+ *   GCS_PREFIX   pasta base dentro do bucket (opcional, ex: "papyrus/")
+ *   GCS_KEYFILE  caminho do JSON da service account (opcional quando o ambiente
+ *                ja tem GOOGLE_APPLICATION_CREDENTIALS ou ADC)
+ *
+ * Ou pelo arquivo `papyrus/_system/gcs.json`:
+ *   { "bucket": "meu-bucket", "prefix": "papyrus/", "keyFilename": "C:/chaves/sa.json" }
  */
 
 import fs from 'node:fs/promises';
@@ -58,11 +59,13 @@ export function gcsEnvOverrides() {
 }
 
 /**
- * Grava a configuração vinda da aba Configurações.
- * A credencial chega SEMPRE como `keyJson` (conteúdo colado da service
- * account): é validada, salva em arquivo próprio dentro de `_system/` e
- * referenciada por caminho — o gcs.json em si nunca carrega a chave privada.
- * Sem `keyJson`, a credencial já salva é preservada; `removeKey: true` apaga.
+ * Grava a configuracao vinda da aba Configuracoes.
+ *
+ * A credencial chega sempre como `keyJson`, o conteudo colado da service
+ * account. Ela e validada, salva em arquivo proprio dentro de `_system/` e
+ * referenciada por caminho, entao o gcs.json em si nunca carrega a chave
+ * privada. Sem `keyJson` a credencial ja salva continua valendo, e
+ * `removeKey: true` apaga.
  */
 export async function saveGcsConfig({ bucket, prefix, projectId, keyJson, removeKey } = {}) {
   const existing = await readGcsFileConfig();
@@ -110,12 +113,12 @@ export async function saveGcsConfig({ bucket, prefix, projectId, keyJson, remove
 }
 
 /**
- * Testa a conexão de ponta a ponta: lib instalada, credencial válida e
- * bucket acessível. Lança com mensagem legível em qualquer falha.
+ * Testa a conexao de ponta a ponta: lib instalada, credencial valida e bucket
+ * acessivel. Qualquer falha vira erro com mensagem legivel.
  *
- * Aceita os valores que estão na tela (`draft`) para permitir testar ANTES de
- * salvar — é o que a aba Configurações envia. O que não vier no draft cai no
- * que já está salvo/no env.
+ * Aceita os valores que estao na tela, em `draft`, para dar para testar antes
+ * de salvar. E o que a aba Configuracoes manda. O que nao vier no draft cai no
+ * que ja esta salvo ou no env.
  *
  * @param {{bucket?:string, prefix?:string, projectId?:string, keyJson?:string}} [draft]
  */
@@ -128,8 +131,8 @@ export async function testGcs(draft = {}) {
     keyFilename: saved.keyFilename,
   };
 
-  // Env sempre vence: se o valor está fixado por variável de ambiente, o campo
-  // aparece desabilitado na UI e o draft não pode sobrescrevê-lo.
+  // Env sempre vence. Valor fixado por variavel de ambiente aparece com o campo
+  // desabilitado na UI, e o draft nao sobrescreve.
   if (process.env.GCS_BUCKET) config.bucket = saved.bucket;
   if (process.env.GCS_PROJECT_ID) config.projectId = saved.projectId;
 
@@ -139,7 +142,7 @@ export async function testGcs(draft = {}) {
     throw err;
   }
 
-  // Credencial colada e ainda não salva: usa direto, sem gravar em disco.
+  // Credencial colada e ainda nao salva: usa direto, sem gravar em disco.
   let credentials = null;
   if (draft.keyJson && String(draft.keyJson).trim() && !process.env.GCS_KEYFILE) {
     let parsed;
@@ -200,7 +203,7 @@ export async function testGcs(draft = {}) {
   return { ok: true, bucket: config.bucket, prefix: config.prefix };
 }
 
-/** Verifica se a lib oficial está instalada, sem carregá-la à toa. */
+/** Verifica se a lib oficial esta instalada, sem carrega-la a toa. */
 async function loadStorageLib() {
   try {
     const mod = await import('@google-cloud/storage');
@@ -211,7 +214,7 @@ async function loadStorageLib() {
 }
 
 /**
- * Diagnóstico usado pela UI para habilitar (ou explicar) a opção de GCS.
+ * Diagnostico que a UI usa para habilitar, ou explicar, a opcao de GCS.
  * @returns {{configured:boolean, ready:boolean, bucket:string, prefix:string, reason:string|null}}
  */
 export async function gcsStatus() {

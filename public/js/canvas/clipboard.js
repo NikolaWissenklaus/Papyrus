@@ -1,16 +1,14 @@
-/**
- * canvas/clipboard.js
- * ---------------------------------------------------------------------------
- * Copiar/colar de elementos e de imagens.
+/*
+ * Copiar e colar elementos e imagens.
  *
- * O conteudo copiado tambem vai para a area de transferencia do sistema como
- * JSON assinado (`papyrus/clipboard`). Isso permite colar elementos entre
- * paginas diferentes e ate entre abas do navegador.
+ * O que e copiado tambem vai para a area de transferencia do sistema, como
+ * JSON assinado (`papyrus/clipboard`). E o que permite colar elementos de uma
+ * pagina em outra, e ate entre abas do navegador.
  */
 
 import { state, addElements, getElement } from '../store.js';
 import { uid, readFileAsDataURL, loadImage } from '../util.js';
-import { createImage } from '../models.js';
+import { createImage, renewEventIds } from '../models.js';
 import { api } from '../api.js';
 import { toast } from '../ui/toast.js';
 import { viewportCenter } from './stage.js';
@@ -18,12 +16,10 @@ import { primeImage } from './nodes.js';
 
 const SIGNATURE = 'papyrus/clipboard';
 
-/** Buffer interno — usado quando o navegador bloqueia leitura do clipboard. */
+/** Buffer interno, usado quando o navegador bloqueia a leitura do clipboard. */
 let buffer = null;
 
-/* -------------------------------------------------------------------------- */
-/* Copiar / recortar                                                          */
-/* -------------------------------------------------------------------------- */
+/* Copiar e recortar */
 
 export async function copySelection() {
   const selected = state.selection.map(getElement).filter(Boolean);
@@ -35,16 +31,14 @@ export async function copySelection() {
   try {
     await navigator.clipboard.writeText(JSON.stringify(payload));
   } catch {
-    /* sem permissao de clipboard — o buffer interno cobre o caso */
+    /* sem permissao de clipboard; o buffer interno cobre o caso */
   }
 
   toast.info(`${selected.length} elemento(s) copiado(s).`);
   return true;
 }
 
-/* -------------------------------------------------------------------------- */
-/* Colar                                                                      */
-/* -------------------------------------------------------------------------- */
+/* Colar */
 
 /** Reidrata elementos copiados com novos IDs, preservando conectores internos. */
 function rehydrate(elements, origin) {
@@ -68,6 +62,10 @@ function rehydrate(elements, origin) {
     copy.to = { ...copy.to, id: idMap.get(el.to.id) };
     result.push(copy);
   }
+
+  // A copia entra como card novo, entao ganha event_id proprio. Colando em
+  // outra pagina, o id ja sai com o prefixo da pasta de destino.
+  renewEventIds(result);
 
   // Reposiciona o bloco colado no centro da viewport atual.
   const shapes = result.filter((el) => el.type !== 'connector');
@@ -117,11 +115,10 @@ export async function insertImageFromFile(file, position) {
   }
 }
 
-/**
- * Handler global de `paste`. Prioridade:
- *   1. imagem na area de transferencia (print de tela)
- *   2. JSON assinado do Papyrus
- *   3. texto simples -> vira uma nota adesiva
+/*
+ * Handler global de `paste`, nesta ordem de prioridade: imagem na area de
+ * transferencia (print de tela), JSON assinado do Papyrus e, por ultimo, texto
+ * simples, que vira nota adesiva.
  */
 export async function handlePaste(event) {
   if (!state.doc) return;
@@ -156,7 +153,7 @@ export async function handlePaste(event) {
     return;
   }
 
-  // Texto solto vira nota adesiva — atalho util ao trazer requisitos de fora.
+  // Texto solto vira nota adesiva. Ajuda na hora de trazer requisito de fora.
   if (text && text.trim() && !isTypingTarget(event.target)) {
     event.preventDefault();
     const { createSticky } = await import('../models.js');

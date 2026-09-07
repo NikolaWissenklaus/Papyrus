@@ -1,11 +1,9 @@
-/**
- * panels/sidebar.js
- * ---------------------------------------------------------------------------
+/*
  * Navegador da pasta `papyrus`: arvore, busca, CRUD e importacao.
  *
- * Arquivos JSON que nao contem `"json-type": "papyrus"` na raiz aparecem
- * esmaecidos e nao abrem — a validacao acontece no servidor, mas a UI mostra
- * o motivo para o usuario nao ficar no escuro.
+ * JSON que nao tem `"json-type": "papyrus"` na raiz aparece esmaecido e nao
+ * abre. Quem valida e o servidor, mas a UI mostra o motivo em vez de deixar a
+ * pessoa no escuro.
  */
 
 import { api } from '../api.js';
@@ -13,6 +11,8 @@ import { state, loadTree, openPage, closePage, flushSave, on } from '../store.js
 import { esc, formatDate, readFileAsText } from '../util.js';
 import { prompt, confirm, contextMenu, openModal } from '../ui/modal.js';
 import { toast } from '../ui/toast.js';
+import { DEFAULT_FOLDER_COLOR, FOLDER_COLORS, PAGE_COLOR } from '../constants.js';
+import { renewEventIds } from '../models.js';
 
 let treeHost = null;
 let searchInput = null;
@@ -52,9 +52,7 @@ export function initSidebar() {
   on('page-opened', () => renderTree());
 }
 
-/* ========================================================================== */
-/* Render                                                                     */
-/* ========================================================================== */
+/* Render */
 
 const FOLDER_ICON = '<svg viewBox="0 0 16 16"><path d="M1.5 3.5h4l1.2 1.5h7.8v7.5a1 1 0 01-1 1h-12a1 1 0 01-1-1z"/></svg>';
 const PAGE_ICON = '<svg viewBox="0 0 16 16"><path d="M3.5 1.5h6l3.5 3.5v9a1 1 0 01-1 1h-8.5a1 1 0 01-1-1v-11a1 1 0 011-1z"/></svg>';
@@ -87,12 +85,12 @@ function renderNodes(nodes, query, depth) {
     .filter((node) => matches(node, query))
     .map((node) => {
       if (node.type === 'folder') {
-        // Durante uma busca, abre tudo para revelar os resultados.
+        // Durante a busca, abre tudo para os resultados aparecerem.
         const isOpen = query ? true : expanded.has(node.path);
         return `
           <div class="tree-node" data-path="${esc(node.path)}" data-type="folder" data-open="${isOpen}">
             <span class="tree-node__caret">${isOpen ? '▾' : '▸'}</span>
-            <span class="tree-node__icon">${FOLDER_ICON}</span>
+            <span class="tree-node__icon" style="color:${esc(node.color || DEFAULT_FOLDER_COLOR)}">${FOLDER_ICON}</span>
             <span class="tree-node__label">${highlight(node.name, query)}</span>
             <button class="tree-node__menu" data-menu>⋯</button>
           </div>
@@ -105,7 +103,7 @@ function renderNodes(nodes, query, depth) {
              data-path="${esc(node.path)}" data-type="page"
              title="${node.invalid ? 'Ignorado: falta a chave \"json-type\": \"papyrus\" na raiz do JSON.' : `Atualizado em ${formatDate(node.updatedAt)}`}">
           <span class="tree-node__caret"></span>
-          <span class="tree-node__icon">${PAGE_ICON}</span>
+          <span class="tree-node__icon"${node.invalid ? '' : ` style="color:${PAGE_COLOR}"`}>${PAGE_ICON}</span>
           <span class="tree-node__label">${highlight(node.name, query)}</span>
           ${node.invalid ? '<span class="tree-node__badge">ignorado</span>' : node.eventCount ? `<span class="tree-node__badge">${node.eventCount}</span>` : ''}
           <button class="tree-node__menu" data-menu>⋯</button>
@@ -123,9 +121,7 @@ function highlight(name, query) {
   )}</mark>${esc(name.slice(index + query.length))}`;
 }
 
-/* ========================================================================== */
-/* Interacao                                                                  */
-/* ========================================================================== */
+/* Interacao */
 
 function bindNodes() {
   treeHost.querySelectorAll('.tree-node').forEach((node) => {
@@ -158,7 +154,7 @@ function bindNodes() {
       openNodeMenu(e.clientX, e.clientY, path, type);
     };
 
-    // --- Drag & drop para reorganizar ---
+    // Drag & drop para reorganizar
     node.draggable = true;
     node.ondragstart = (e) => {
       e.dataTransfer.setData('text/papyrus-path', path);
@@ -198,12 +194,12 @@ function openNodeMenu(x, y, path, type) {
           { label: 'Importar para esta pasta', onClick: () => startImport(path) },
           '-',
           { label: 'Renomear', onClick: () => rename(path) },
+          { label: 'Mudar a cor', onClick: () => changeFolderColor(path) },
           { label: 'Excluir pasta', danger: true, onClick: () => remove(path, 'folder') },
         ]
       : [
           { label: 'Abrir', onClick: () => open(path) },
           { label: 'Duplicar', onClick: () => duplicatePage(path) },
-          { label: 'Exportar Trust Factor', onClick: () => exportSingle(path) },
           '-',
           { label: 'Renomear', onClick: () => rename(path) },
           { label: 'Excluir página', danger: true, onClick: () => remove(path, 'page') },
@@ -212,9 +208,7 @@ function openNodeMenu(x, y, path, type) {
   contextMenu(x, y, items);
 }
 
-/* ========================================================================== */
-/* Operacoes                                                                  */
-/* ========================================================================== */
+/* Operacoes */
 
 async function open(path) {
   try {
@@ -224,16 +218,111 @@ async function open(path) {
   }
 }
 
-async function createFolder(parent = activeFolder) {
-  const name = await prompt({
-    title: 'Nova pasta',
-    subtitle: parent ? `Dentro de: ${parent}` : 'Na raiz do papyrus',
-    label: 'Nome da pasta',
+/* Cor da pasta */
+
+/** Paleta usada tanto na criacao quanto na edicao. E o componente do inspetor. */
+function colorSwatches(current) {
+  return `<div class="swatches" id="folder-color">
+    ${FOLDER_COLORS.map(
+      (c) => `<button type="button" class="swatch" data-color="${c.value}"
+                aria-pressed="${c.value.toUpperCase() === String(current).toUpperCase()}"
+                style="background:${c.value}" title="${esc(c.label)}"></button>`,
+    ).join('')}
+  </div>`;
+}
+
+/** Liga os botoes da paleta e devolve um getter da cor selecionada. */
+function bindSwatches(modal, initial) {
+  let selected = initial;
+  const buttons = modal.querySelectorAll('#folder-color .swatch');
+
+  buttons.forEach((swatch) => {
+    swatch.onclick = () => {
+      buttons.forEach((s) => s.setAttribute('aria-pressed', 'false'));
+      swatch.setAttribute('aria-pressed', 'true');
+      selected = swatch.dataset.color;
+    };
   });
-  if (!name) return;
+
+  return () => selected;
+}
+
+/** Busca um no na arvore ja carregada (para saber a cor atual da pasta). */
+function findNode(nodes, path) {
+  for (const node of nodes) {
+    if (node.path === path) return node;
+    const found = node.children ? findNode(node.children, path) : null;
+    if (found) return found;
+  }
+  return null;
+}
+
+async function changeFolderColor(path) {
+  const current = findNode(state.tree || [], path)?.color || DEFAULT_FOLDER_COLOR;
+
+  const color = await openModal({
+    title: 'Cor da pasta',
+    subtitle: path,
+    body: `<div class="field">
+             <label class="field__label">Escolha a cor</label>
+             ${colorSwatches(current)}
+           </div>`,
+    footer: `
+      <button class="btn btn--ghost" data-close="null">Cancelar</button>
+      <button class="btn btn--primary" id="color-ok">Aplicar</button>`,
+    onMount: (modal, close) => {
+      const readColor = bindSwatches(modal, current);
+      modal.querySelector('#color-ok').onclick = () => close(readColor());
+    },
+  });
+  if (!color) return;
 
   try {
-    const folder = await api.createFolder(parent, name);
+    await api.setFolderColor(path, color);
+    await loadTree();
+    toast.ok('Cor da pasta atualizada.');
+  } catch (err) {
+    toast.error(err.message);
+  }
+}
+
+async function createFolder(parent = activeFolder) {
+  const result = await openModal({
+    title: 'Nova pasta',
+    subtitle: parent ? `Dentro de: ${parent}` : 'Na raiz do papyrus',
+    body: `
+      <div class="field">
+        <label class="field__label">Nome da pasta</label>
+        <input class="input" id="folder-name" autocomplete="off" />
+      </div>
+      <div class="field">
+        <label class="field__label">Cor</label>
+        ${colorSwatches(DEFAULT_FOLDER_COLOR)}
+        <div class="field__hint">Dá para mudar depois pelo menu da pasta.</div>
+      </div>`,
+    footer: `
+      <button class="btn btn--ghost" data-close="null">Cancelar</button>
+      <button class="btn btn--primary" id="folder-ok">Criar</button>`,
+    onMount: (modal, close) => {
+      const input = modal.querySelector('#folder-name');
+      const readColor = bindSwatches(modal, DEFAULT_FOLDER_COLOR);
+
+      const submit = () => {
+        const name = input.value.trim();
+        if (name) close({ name, color: readColor() });
+      };
+
+      input.focus();
+      input.onkeydown = (e) => {
+        if (e.key === 'Enter') submit();
+      };
+      modal.querySelector('#folder-ok').onclick = submit;
+    },
+  });
+  if (!result) return;
+
+  try {
+    const folder = await api.createFolder(parent, result.name, result.color);
     expanded.add(folder.path);
     await loadTree();
     toast.ok(`Pasta "${folder.name}" criada.`);
@@ -315,6 +404,11 @@ async function duplicatePage(path) {
     const baseName = path.split('/').pop().replace(/\.json$/i, '');
 
     const page = await api.createPage(parent, `${baseName} (cópia)`);
+
+    // Os cards da copia sao cards novos, e cada um precisa do proprio event_id.
+    // A pasta vem do destino, que nem sempre e a da pagina aberta no canvas.
+    renewEventIds(doc.elements || [], parent ? parent.split('/').pop() : '');
+
     await api.savePage(page.path, { ...doc, id: crypto.randomUUID(), name: page.name });
     await loadTree();
     toast.ok('Página duplicada.');
@@ -323,18 +417,11 @@ async function duplicatePage(path) {
   }
 }
 
-async function exportSingle(path) {
-  const { exportTrustFactor } = await import('./exporters.js');
-  await exportTrustFactor([path]);
-}
-
-/* ========================================================================== */
-/* Importacao                                                                 */
-/* ========================================================================== */
+/* Importacao */
 
 /*
- * A importação acontece exclusivamente via upload pelo navegador — a UI nunca
- * navega nem exibe pastas da máquina onde o servidor roda.
+ * A importacao acontece so por upload pelo navegador. A UI nunca navega nem
+ * exibe pastas da maquina onde o servidor roda.
  */
 
 /** Pasta de destino do upload em andamento (setada pelo menu de contexto). */

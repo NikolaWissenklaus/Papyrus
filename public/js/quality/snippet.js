@@ -1,11 +1,10 @@
-/**
- * quality/snippet.js
- * ---------------------------------------------------------------------------
- * Quality of Life #2 — Geracao de codigo a partir do card.
+/*
+ * Geracao de codigo a partir do card.
  *
- * Transforma a especificacao desenhada no canvas em codigo pronto para o time
- * de front-end: `dataLayer.push` (GTM) ou `gtag('event', ...)`. Fecha o ciclo
- * "planejei -> implemento" sem retrabalho de digitacao e sem erro de nomenclatura.
+ * Pega a especificacao desenhada no canvas e devolve codigo pronto para o time
+ * de front-end, em `dataLayer.push` (GTM) ou `gtag('event', ...)`. A ideia e ir
+ * do planejamento para a implementacao sem redigitar nada e sem errar nome de
+ * parametro no caminho.
  */
 
 import { EVENT_TYPE_MAP } from '../constants.js';
@@ -46,9 +45,9 @@ function serializeParams(params, level, { skip = [] } = {}) {
 }
 
 /**
- * Gera o snippet `dataLayer.push`.
- * Em eventos Ecommerce, monta a estrutura aninhada `ecommerce.items[]`
- * e antecede com o `push({ ecommerce: null })` recomendado pelo Google.
+ * Gera o snippet `dataLayer.push`. Em evento Ecommerce monta a estrutura
+ * aninhada `ecommerce.items[]` e coloca antes o `push({ ecommerce: null })`
+ * que o Google recomenda.
  */
 export function buildDataLayerSnippet(el) {
   const d = el.data || {};
@@ -57,7 +56,7 @@ export function buildDataLayerSnippet(el) {
 
   const header = [
     `/**`,
-    ` * ${d.name || 'sem_nome'} — ${type}`,
+    ` * ${d.name || 'sem_nome'} (${type})`,
     ` * Plataforma: ${(d.platform || []).join(', ') || '—'}`,
     ` * Gatilho: ${d.trigger || '—'}`,
     ` * Squad: ${d.squad || '—'} · Responsável: ${d.owner || '—'}`,
@@ -137,8 +136,8 @@ export function buildGtagSnippet(el) {
 }
 
 /**
- * Quality of Life #3 — JSON Schema do evento.
- * Util para validar payloads em testes automatizados / contratos de coleta.
+ * JSON Schema do evento, util para validar payload em teste automatizado ou
+ * em contrato de coleta.
  */
 export function buildJsonSchema(el) {
   const d = el.data || {};

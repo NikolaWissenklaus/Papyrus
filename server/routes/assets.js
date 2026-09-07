@@ -1,12 +1,9 @@
-/**
- * routes/assets.js
- * ---------------------------------------------------------------------------
- * Upload de imagens (Ctrl+V de prints ou botao de importar imagem).
+/*
+ * Upload de imagem, vindo do Ctrl+V de um print ou do botao de importar.
  *
- * Decisao de arquitetura: imagens NAO ficam embutidas em base64 dentro do JSON
- * da pagina. Elas sao gravadas em `papyrus/_assets/<data>/<uuid>.<ext>` e o
- * documento guarda apenas a URL. Isso mantem os JSONs leves, versionaveis e
- * legiveis por humanos.
+ * Imagem nao fica embutida em base64 dentro do JSON da pagina. Ela e gravada em
+ * `papyrus/_assets/<data>/<uuid>.<ext>` e o documento guarda so a URL. E o que
+ * mantem o JSON leve, versionavel e legivel por gente.
  */
 
 import express from 'express';
@@ -43,7 +40,7 @@ router.post('/assets', async (req, res, next) => {
       return res.status(413).json({ error: 'Imagem acima de 25 MB.' });
     }
 
-    // Agrupa por dia para facilitar limpeza manual futura.
+    // Agrupa por dia, para facilitar uma limpeza manual la na frente.
     const bucket = new Date().toISOString().slice(0, 10);
     const dir = path.join(ASSETS_DIR, bucket);
     await fs.mkdir(dir, { recursive: true });
