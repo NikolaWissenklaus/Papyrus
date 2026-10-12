@@ -17,6 +17,7 @@ import {
 } from '../store.js';
 import {
   EVENT_TYPES, EVENT_TYPE_MAP, PARAM_TYPES, PLATFORMS, SHAPE_COLORS, STICKY_COLORS,
+  CANVAS_BACKGROUNDS, DEFAULT_CANVAS_BG, BORDER_COLORS, DEFAULT_BORDER_WIDTH,
 } from '../constants.js';
 import { createParam, defaultItemParams, isEventIdParam } from '../models.js';
 import { esc, uid, toSnakeCase } from '../util.js';
@@ -89,7 +90,9 @@ export function renderInspector() {
         <p class="faint" style="font-size:12px;margin-top:18px">
           Dica: <kbd>E</kbd> cria um card de evento, <kbd>Ctrl</kbd>+<kbd>V</kbd> cola um print de tela.
         </p>
-      </div>`;
+      </div>
+      ${state.doc ? pageSection() : ''}`;
+    if (state.doc) bindPageSection();
     return;
   }
 
@@ -157,6 +160,92 @@ const swatches = (colors, current, fieldName) => `
       )
       .join('')}
   </div>`;
+
+/* Pagina (sem selecao) */
+
+/** Propriedades da pagina aberta. Aparece quando nao ha nada selecionado. */
+function pageSection() {
+  const current = (state.doc.background || DEFAULT_CANVAS_BG).toUpperCase();
+  const custom = !CANVAS_BACKGROUNDS.includes(current);
+
+  return section('page', 'Página',
+    field(
+      'Cor de fundo do canvas',
+      `<div class="swatches" data-page-bg>
+         ${CANVAS_BACKGROUNDS.map(
+           (c) => `<button class="swatch" data-color="${c}" aria-pressed="${c === current}"
+                     style="background:${c}" title="${c}"></button>`,
+         ).join('')}
+         <input type="color" class="swatch" data-page-bg-custom value="${esc(current)}"
+                aria-pressed="${custom}" title="Outra cor" />
+       </div>`,
+      'Vale só para esta página e fica salva no arquivo dela.',
+    ));
+}
+
+function bindPageSection() {
+  bindCommonActions();
+
+  const group = host.querySelector('[data-page-bg]');
+  const picker = group.querySelector('[data-page-bg-custom]');
+
+  const apply = (color, pressed) => {
+    group.querySelectorAll('.swatch').forEach((s) => s.setAttribute('aria-pressed', String(s === pressed)));
+    mutate((doc) => {
+      // A cor padrao nao e gravada: a pagina segue o tema da ferramenta.
+      if (color.toUpperCase() === DEFAULT_CANVAS_BG) delete doc.background;
+      else doc.background = color.toUpperCase();
+    }, 'doc.background');
+  };
+
+  group.querySelectorAll('button.swatch').forEach((sw) => {
+    sw.onclick = () => {
+      picker.value = sw.dataset.color;
+      apply(sw.dataset.color, sw);
+    };
+  });
+  picker.oninput = () => apply(picker.value, picker);
+}
+
+/* Borda (imagem e card de evento) */
+
+/*
+ * A borda fica na raiz do elemento, junto da geometria. Os atributos sao
+ * proprios (`data-border-*`) porque no card de evento todo `data-field` e
+ * gravado dentro de `data`.
+ */
+const borderSection = (el) =>
+  section('border', 'Borda',
+    field('Cor', swatches(BORDER_COLORS, el.borderColor || 'transparent', 'borderColor'),
+      'O primeiro quadrado remove a borda.') +
+    field('Espessura',
+      `<input class="input" type="number" min="1" max="12" data-border-width value="${el.borderWidth ?? DEFAULT_BORDER_WIDTH}" />`));
+
+function bindBorder(el) {
+  const patch = (values, coalesceKey) =>
+    mutate((doc) => {
+      const target = doc.elements.find((e) => e.id === el.id);
+      if (target) Object.assign(target, values);
+    }, coalesceKey);
+
+  const group = host.querySelector('[data-swatch-field="borderColor"]');
+  group?.querySelectorAll('.swatch').forEach((sw) => {
+    sw.onclick = () => {
+      group.querySelectorAll('.swatch').forEach((s) => s.setAttribute('aria-pressed', 'false'));
+      sw.setAttribute('aria-pressed', 'true');
+      patch({ borderColor: sw.dataset.color });
+    };
+  });
+
+  const width = host.querySelector('[data-border-width]');
+  if (width) {
+    width.oninput = () => {
+      const value = Number(width.value);
+      if (width.value.trim() === '' || Number.isNaN(value) || value <= 0) return;
+      patch({ borderWidth: value }, `${el.id}.borderWidth`);
+    };
+  }
+}
 
 /* Tabela de parametros */
 
@@ -296,10 +385,13 @@ function renderEventCard(el) {
         : `<div class="field__hint" style="color:var(--ok)">✓ Nenhum problema encontrado. ${totalParams} parâmetro(s) declarado(s).</div>`,
       issues.length ? String(issues.length) : '✓',
     )}
+
+    ${borderSection(el)}
   `;
 
   bindCommonActions(el);
   bindEventCardFields(el);
+  bindBorder(el);
 }
 
 function bindEventCardFields(el) {
@@ -718,9 +810,11 @@ function renderImage(el) {
       field('Opacidade', `<input class="input" type="number" min="0.1" max="1" step="0.1" data-field="opacity" value="${el.opacity ?? 1}" />`) +
       field('Cantos arredondados', `<input class="input" type="number" min="0" max="40" data-field="cornerRadius" value="${el.cornerRadius ?? 0}" />`) +
       `<div class="field__hint">Arquivo: <code>${esc(el.url)}</code></div>`,
-    )}`;
+    )}
+    ${borderSection(el)}`;
   bindCommonActions(el);
   bindSimpleFields(el, { width: Number, height: Number, opacity: Number, cornerRadius: Number });
+  bindBorder(el);
 }
 
 function renderPin(el) {

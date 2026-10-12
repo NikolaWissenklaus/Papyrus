@@ -308,6 +308,22 @@
   cursor: pointer;
   padding: 0;
 }
+/* Seletor de cor livre, no mesmo formato dos quadrados da paleta. */
+input[type='color'].swatch {
+  appearance: none;
+  -webkit-appearance: none;
+  background: none;
+  overflow: hidden;
+}
+input[type='color'].swatch::-webkit-color-swatch-wrapper {
+  padding: 0;
+}
+input[type='color'].swatch::-webkit-color-swatch {
+  border: 0;
+}
+input[type='color'].swatch::-moz-color-swatch {
+  border: 0;
+}
 .swatch[aria-pressed='true'] {
   box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--primary);
 }

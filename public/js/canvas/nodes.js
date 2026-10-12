@@ -6,7 +6,7 @@
  * cuida da interacao e o stage.
  */
 
-import { EVENT_TYPE_MAP, DEFAULTS } from '../constants.js';
+import { EVENT_TYPE_MAP, DEFAULTS, DEFAULT_BORDER_WIDTH } from '../constants.js';
 import { truncate } from '../util.js';
 import { cacheSize, routeConnector, connectorPoints, bezierMidpoint, getBounds } from './geometry.js';
 
@@ -310,8 +310,33 @@ const divider = (PAD, y, W) =>
 
 function finish(group, bg, el, width, height) {
   bg.height(height);
+  addBorder(group, el, width, height, 14);
   cacheSize(el.id, width, height);
   return group;
+}
+
+/*
+ * Borda opcional de imagem e card de evento. Vai em um retangulo proprio, por
+ * cima de tudo: desenhada no fundo do card, a metade de dentro do traco ficaria
+ * escondida atras da tarja do cabecalho.
+ */
+function addBorder(group, el, width, height, cornerRadius) {
+  if (!el.borderColor || el.borderColor === 'transparent') return;
+  const strokeWidth = el.borderWidth ?? DEFAULT_BORDER_WIDTH;
+  if (!(strokeWidth > 0)) return;
+
+  group.add(
+    new Konva.Rect({
+      width,
+      height,
+      cornerRadius,
+      stroke: el.borderColor,
+      strokeWidth,
+      listening: false,
+      perfectDrawEnabled: false,
+      name: 'border',
+    }),
+  );
 }
 
 /* Demais elementos */
@@ -461,6 +486,7 @@ function buildImage(el, ctx) {
     img.src = el.url;
   }
 
+  addBorder(group, el, el.width, el.height, el.cornerRadius ?? 0);
   cacheSize(el.id, el.width, el.height);
   return group;
 }

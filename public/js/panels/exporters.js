@@ -48,6 +48,10 @@ export async function takeCanvasPhoto() {
 
   // Pre-preenche com os padroes definidos na aba Configuracoes.
   const def = getExportDefaults();
+  // Pagina com fundo proprio ja abre com ele escolhido: o conteudo foi montado
+  // para aquela cor, e sobre branco poderia ficar ilegivel.
+  const pageBg = state.doc.background || '';
+  if (pageBg) def.background = pageBg;
   const sel = (value, current) => (String(value) === String(current) ? ' selected' : '');
 
   const options = await openModal({
@@ -75,6 +79,7 @@ export async function takeCanvasPhoto() {
         <div class="field">
           <label class="field__label">Fundo</label>
           <select class="select" id="png-bg">
+            ${pageBg ? `<option value="${esc(pageBg)}" selected>Cor do canvas</option>` : ''}
             <option value="#FFFFFF"${sel('#FFFFFF', def.background)}>Branco</option>
             <option value="#F8F9FA"${sel('#F8F9FA', def.background)}>Cinza claro</option>
             <option value="transparent"${sel('transparent', def.background)}>Transparente (só PNG)</option>

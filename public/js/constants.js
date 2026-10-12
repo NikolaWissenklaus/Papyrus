@@ -100,6 +100,23 @@ export const SHAPE_COLORS = [
 
 export const STICKY_COLORS = ['#FEF7C3', '#D8F0E1', '#DCE6FB', '#FBDDE3', '#F3E8FD', '#F1F3F4'];
 
+/** Fundo do canvas quando a pagina nao define um. Espelha `--canvas-bg` do CSS. */
+export const DEFAULT_CANVAS_BG = '#F8F9FA';
+
+/** Paleta de fundo do canvas. Fora dela, o seletor livre aceita qualquer cor. */
+export const CANVAS_BACKGROUNDS = [
+  DEFAULT_CANVAS_BG, '#FFFFFF', '#F1F3F4', '#E8F0FE',
+  '#E6F4EA', '#FEF7E0', '#FCE8E6', '#202124',
+];
+
+/** Cores da borda opcional de imagem e card de evento. `transparent` e "sem borda". */
+export const BORDER_COLORS = [
+  'transparent', '#DADCE0', '#5F6368', '#202124', '#1A73E8', '#D93025', '#188038', '#F9AB00',
+];
+
+/** Espessura usada quando a borda e ligada sem espessura definida. */
+export const DEFAULT_BORDER_WIDTH = 2;
+
 /** Cor do icone de pagina na barra lateral. E fixa: so pasta aceita cor propria. */
 export const PAGE_COLOR = '#1A73E8';
 

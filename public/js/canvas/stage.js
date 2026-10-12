@@ -115,7 +115,10 @@ export function initStage(container) {
 
   // Re-renderiza sempre que o documento ou a selecao mudarem.
   // O agendamento por frame evita renders redundantes durante digitacao rapida.
-  on('doc', () => scheduleRender());
+  on('doc', () => {
+    scheduleRender();
+    paintGrid(); // a cor de fundo mora no documento
+  });
   on('selection', () => applySelectionVisuals());
   on('tool', (tool) => {
     cancelConnector();
@@ -234,14 +237,32 @@ export function applyViewport(viewport) {
 
 /* Grid */
 
-/** A malha e desenhada via CSS no container, custo zero de render no Konva. */
+/** True para cor #RRGGBB escura, onde o pontilhado cinza claro ofuscaria. */
+function isDark(hex) {
+  const m = /^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i.exec(hex || '');
+  if (!m) return false;
+  const [r, g, b] = m.slice(1).map((c) => parseInt(c, 16));
+  return (0.299 * r + 0.587 * g + 0.114 * b) / 255 < 0.5;
+}
+
+/**
+ * A malha e o fundo sao desenhados via CSS no container, custo zero de render
+ * no Konva. A cor de fundo e da pagina (`doc.background`); sem ela vale o
+ * `--canvas-bg` do CSS.
+ */
 function paintGrid() {
   if (!host || !stage) return;
   const scale = stage.scaleX();
   const size = GRID * scale;
   const dot = clamp(1 * scale, 0.6, 2);
 
-  host.style.backgroundImage = `radial-gradient(circle, #DADCE0 ${dot}px, transparent ${dot}px)`;
+  const background = state.doc?.background;
+  const dotColor = !background
+    ? '#DADCE0'
+    : isDark(background) ? 'rgba(255,255,255,0.18)' : 'rgba(60,64,67,0.18)';
+
+  host.style.backgroundColor = background || '';
+  host.style.backgroundImage = `radial-gradient(circle, ${dotColor} ${dot}px, transparent ${dot}px)`;
   host.style.backgroundSize = `${size}px ${size}px`;
   host.style.backgroundPosition = `${stage.x()}px ${stage.y()}px`;
 }
