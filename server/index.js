@@ -23,6 +23,35 @@ const PORT = Number(process.env.PORT) || 4173;
 
 const app = express();
 
+// --- Restrição de IP --------------------------------------------------------
+// Adicione os IPs permitidos (inclua localhost para testes locais)
+const ALLOWED_IPS = [
+  '127.0.0.1',       // Localhost IPv4
+  '::1',             // Localhost IPv6
+  '',                // Substitua pelo IP externo ou IP da rede interna desejado
+];
+
+// Se o servidor rodar atrás de um proxy reverso (Nginx, Cloudflare, Docker, etc.),
+// descomente a linha abaixo para ler o IP real do cabeçalho X-Forwarded-For:
+// app.set('trust proxy', true);
+
+app.use((req, res, next) => {
+  // Normaliza o IP (o Node/Express costuma retornar ::ffff:192.168.x.x para IPv4)
+  const rawIp = req.ip || req.socket.remoteAddress || '';
+  const clientIp = rawIp.replace(/^.*:/, '');
+
+  const isAllowed = ALLOWED_IPS.some((allowed) => {
+    return clientIp === allowed || rawIp === allowed;
+  });
+
+  if (!isAllowed) {
+    console.warn(`[segurança] Bloqueado acesso não autorizado do IP: ${rawIp}`);
+    return res.status(403).json({ error: 'Acesso não autorizado para este endereço IP.' });
+  }
+
+  next();
+});
+
 // Canvas com muita imagem ou muito parametro passa fácil do default de 100kb.
 app.use(express.json({ limit: '60mb' }));
 
